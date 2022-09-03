@@ -3,14 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
-	"net"
-
-	pb "github.com/LuisAcerv/btchdwallet/proto/btchdwallet"
-	"github.com/LuisAcerv/btchdwallet/wallet"
-
+	pb "github.com/cxyzhang0/wallet-go/proto/btchdwallet"
+	"github.com/cxyzhang0/wallet-go/wallet"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+	"log"
+	"net"
 )
 
 const (

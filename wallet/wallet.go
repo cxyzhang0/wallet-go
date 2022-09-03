@@ -2,13 +2,11 @@ package wallet
 
 import (
 	"fmt"
-
-	pb "github.com/LuisAcerv/btchdwallet/proto/btchdwallet"
-
-	"github.com/LuisAcerv/btchdwallet/config"
-	"github.com/LuisAcerv/btchdwallet/crypt"
 	"github.com/blockcypher/gobcy"
 	"github.com/brianium/mnemonic"
+	"github.com/cxyzhang0/wallet-go/config"
+	"github.com/cxyzhang0/wallet-go/crypt"
+	pb "github.com/cxyzhang0/wallet-go/proto/btchdwallet"
 	"github.com/wemeetagain/go-hdwallet"
 )
 

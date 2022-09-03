@@ -1,8 +1,10 @@
 // proto-service
 syntax = "proto3";
+//package btchdwallet;
 package go.microservice.btchdwallet;
 
-option go_package = "github.com/LuisAcerv/btchdwallet";
+//option go_package = "/btchdwallet";
+option go_package = "github.com/cxyzhang0/wallet-go/proto/btchdwallet";
 
 service Wallet {
     rpc CreateWallet(Request)      returns (Response) {}
