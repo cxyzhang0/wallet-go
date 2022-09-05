@@ -47,5 +47,8 @@ go run client.go -m=create-wallet
 ./client -m=get-wallet -mne="crucial clinic obscure good creek brand sunset grit coral mention off hint" 
 
 // get balance for adddress
+// on btc test3
+./client -m=get-balance -addr=n4VVN4CZhm2rdNkh7mXGzWJLaRePVitWhT
+// on btc main
 ./client -m=get-balance -addr=1Go23sv8vR81YuV1hHGsUrdyjLcGVUpCDy
 ```

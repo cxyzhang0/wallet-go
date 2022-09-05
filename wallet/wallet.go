@@ -46,7 +46,7 @@ func DecodeWallet(mnemonic string) *pb.Response {
 
 // GetBalance is in charge of returning the given address balance
 func GetBalance(address string) *pb.Response {
-	btc := gobcy.API{conf.Blockcypher.Token, "btc", "main"}
+	btc := gobcy.API{conf.Blockcypher.Token, conf.Blockcypher.Coin, conf.Blockcypher.Chain}
 	addr, err := btc.GetAddrBal(address, nil)
 	if err != nil {
 		fmt.Println(err)

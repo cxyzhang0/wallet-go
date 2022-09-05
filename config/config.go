@@ -11,6 +11,8 @@ type Config struct {
 	Version     string `yaml:"version"`
 	Blockcypher struct {
 		Token string `yaml:"token"`
+		Coin  string `yaml:"coin"`
+		Chain string `yaml:"chain"`
 	} `yaml:"blockcypher"`
 }
 
