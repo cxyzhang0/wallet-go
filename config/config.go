@@ -20,7 +20,7 @@ type Config struct {
 func ParseConfig() Config {
 	c := Config{}
 
-	data, _err := ioutil.ReadFile("config.yml")
+	data, _err := ioutil.ReadFile("./config/config.yml")
 	if _err != nil {
 		log.Printf("config.Get err   #%v ", _err)
 	}
