@@ -9,10 +9,12 @@ import (
 
 type Config struct {
 	Version     string `yaml:"version"`
+	WIFPrivKey  string `yaml:"wifPrivKey""`
 	Blockcypher struct {
-		Token string `yaml:"token"`
-		Coin  string `yaml:"coin"`
-		Chain string `yaml:"chain"`
+		Token   string `yaml:"token"`
+		Coin    string `yaml:"coin"`
+		Chain   string `yaml:"chain"`
+		FeeRate int    `yaml:"feeRate"`
 	} `yaml:"blockcypher"`
 }
 

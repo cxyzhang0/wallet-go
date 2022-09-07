@@ -45,7 +45,8 @@ func CreateTx(privKey string, dest string, amount int64) (string, error) {
 		return "", err
 	}
 
-	addrPubKey, err := btcutil.NewAddressPubKey(wif.PrivKey.PubKey().SerializeCompressed(), &chaincfg.TestNet3Params)
+	addrPubKey, err := btcutil.NewAddressPubKey(wif.PrivKey.PubKey().SerializeUncompressed(), &chaincfg.TestNet3Params)
+	//addrPubKey, err := btcutil.NewAddressPubKey(wif.PrivKey.PubKey().SerializeCompressed(), &chaincfg.TestNet3Params)
 
 	txid, balance, pubKeyScript, err := GetUTXO(addrPubKey.EncodeAddress())
 	if err != nil {
@@ -93,6 +94,13 @@ func CreateTx(privKey string, dest string, amount int64) (string, error) {
 
 func CreateTxAndHash(privKey string, dest string, amount int64) (string, string, error) {
 	wif, err := btcutil.DecodeWIF(privKey)
+	//reverse: encodeWIF := wif.String()
+	//fmt.Println("encodeWIF: ", encodeWIF)
+	// from priv key string to btcec.PrivateKey to WIF
+	//privKeyBytes, err := hex.DecodeString(privKey)
+	//ecPrivKey, ecPubKey := btcec.PrivKeyFromBytes(btcec.S256(), privKeyBytes)
+	//btcutil.NewWIF(ecPrivKey, &chaincfg.TestNet3Params, false)
+
 	if err != nil {
 		return "", "", err
 	}
@@ -110,6 +118,8 @@ func CreateTxAndHash(privKey string, dest string, amount int64) (string, string,
 	}
 
 	destAddr, err := btcutil.DecodeAddress(dest, &chaincfg.TestNet3Params) // dest = destAddr.AddressScript() or String()
+	//this will do the reverse of above, both are equal: fmt.Println("destAddr hex: ", destAddr.String(), "; destAddr base58: ", destAddr.EncodeAddress())
+
 	if err != nil {
 		return "", "", err
 	}
@@ -133,6 +143,7 @@ func CreateTxAndHash(privKey string, dest string, amount int64) (string, string,
 	redeemTx.AddTxIn(txIn)
 
 	txOut := wire.NewTxOut(amount, destAddrScript)
+	// not equal: fmt.Println("destAddrScript hex: ", hex.EncodeToString(destAddrScript), "; destAddr.ScriptAddress() hex: ", hex.EncodeToString(destAddr.ScriptAddress()))
 	//txOut := wire.NewTxOut(amount, destAddr.ScriptAddress())
 	redeemTx.AddTxOut(txOut)
 
@@ -164,7 +175,6 @@ func SignTx(privKey string, pubKeyScript string, redeemTx *wire.MsgTx) (string, 
 	var signedTx bytes.Buffer
 	redeemTx.Serialize(&signedTx)
 
-	btcutil.Hash160(signedTx.Bytes())
 	hexSignedTx := hex.EncodeToString(signedTx.Bytes())
 	return hexSignedTx, nil
 }
