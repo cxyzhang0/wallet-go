@@ -23,10 +23,12 @@ func main() {
 	var fromAddrPrivKey string
 	var toAddr string
 	var amountToSend int64
+	var broadcast bool
 
 	flag.StringVar(&fromAddrPrivKey, "k", "", "private key in WIF for fromAddr")
 	flag.StringVar(&toAddr, "to", "", "destination addr in base58 encoding")
 	flag.Int64Var(&amountToSend, "amount", 0, "amount to send in Satoshi")
+	flag.BoolVar(&broadcast, "b", false, "whether to broadcast tx to blockchain")
 	flag.Parse()
 
 	networkParams, err := GetBTCNetworkParams()
@@ -45,7 +47,9 @@ func main() {
 	} else {
 		log.Println("signedTxReq: ", signedTxReq)
 		log.Println("txHash: ", txHash)
-		bcyAPI.PushTX(signedTxReq)
+		if broadcast {
+			bcyAPI.PushTX(signedTxReq)
+		}
 	}
 }
 
