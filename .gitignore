@@ -7,3 +7,5 @@
 config.yml
 
 .idea/
+
+pkcs11/sdk/test/test_data/
