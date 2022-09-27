@@ -1,12 +1,13 @@
 package sdk
 
 import (
+	"crypto/ecdsa"
 	"fmt"
 	p11 "github.com/miekg/pkcs11"
 	"runtime"
 )
 
-var SupportedCurves map[Curve][][]*p11.Attribute = map[Curve][][]*p11.Attribute{ // curve to [publicKeyTemplate, privateKeyTemplate]
+var SupportedAlgorithms map[CryptographAlgorithm][][]*p11.Attribute = map[CryptographAlgorithm][][]*p11.Attribute{ // curve to [publicKeyTemplate, privateKeyTemplate]
 	Secp256k1: {{
 		p11.NewAttribute(p11.CKA_EC_PARAMS, []byte{
 			0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x0A,
@@ -31,7 +32,7 @@ var SupportedCurves map[Curve][][]*p11.Attribute = map[Curve][][]*p11.Attribute{
 			p11.NewAttribute(p11.CKA_EXTRACTABLE, true),
 		},
 	},
-	RSA: {{
+	RSA2048: {{
 		p11.NewAttribute(p11.CKA_CLASS, p11.CKO_PUBLIC_KEY),
 		p11.NewAttribute(p11.CKA_KEY_TYPE, p11.CKK_RSA),
 		p11.NewAttribute(p11.CKA_PUBLIC_EXPONENT, []byte{1, 0, 1}),
@@ -47,7 +48,7 @@ var SupportedCurves map[Curve][][]*p11.Attribute = map[Curve][][]*p11.Attribute{
 type SDK struct {
 	P       *p11.Ctx
 	Session p11.SessionHandle
-	//supportedCurves map[Curve][][]*p11.Attribute
+	//supportedCurves map[CryptographAlgorithm][][]*p11.Attribute
 }
 
 func NewSDK(lib, slotLabel, pin string) (*SDK, error) {
@@ -74,7 +75,7 @@ func NewSDK(lib, slotLabel, pin string) (*SDK, error) {
 		return nil, e
 	}
 
-	var _ = /*curvesMap*/ map[Curve][][]*p11.Attribute{ // curve to [publicKeyTemplate, privateKeyTemplate]
+	var _ = /*curvesMap*/ map[CryptographAlgorithm][][]*p11.Attribute{ // curve to [publicKeyTemplate, privateKeyTemplate]
 		Secp256k1: {{
 			p11.NewAttribute(p11.CKA_EC_PARAMS, []byte{
 				0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x0A,
@@ -99,7 +100,7 @@ func NewSDK(lib, slotLabel, pin string) (*SDK, error) {
 				p11.NewAttribute(p11.CKA_EXTRACTABLE, true),
 			},
 		},
-		RSA: {{
+		RSA2048: {{
 			p11.NewAttribute(p11.CKA_CLASS, p11.CKO_PUBLIC_KEY),
 			p11.NewAttribute(p11.CKA_KEY_TYPE, p11.CKK_RSA),
 			p11.NewAttribute(p11.CKA_PUBLIC_EXPONENT, []byte{1, 0, 1}),
@@ -113,26 +114,26 @@ func NewSDK(lib, slotLabel, pin string) (*SDK, error) {
 	}
 	//supportedCurves1 = make(map[string][][]*p11.Attribute, 3)
 
-	s := SDK{
+	s := &SDK{
 		P:       p,
 		Session: session,
 		//supportedCurves: curvesMap,
 	}
 
-	runtime.SetFinalizer(&s, func(s *SDK) {
+	runtime.SetFinalizer(s, func(s *SDK) {
 		s.P.Logout(s.Session)
 		s.P.CloseSession(s.Session)
 		s.P.Finalize()
 		s.P.Destroy()
 	})
 
-	return &s, nil
+	return s, nil
 }
 
 func (s *SDK) GenerateKeyPair(keyLabel KeyLabel, tokenPersistent bool) (p11.ObjectHandle, p11.ObjectHandle, error) {
-	t, ok := SupportedCurves[keyLabel.Curve]
+	t, ok := SupportedAlgorithms[keyLabel.Algorithm]
 	if !ok {
-		return 0, 0, fmt.Errorf("curve %s is not supported", keyLabel.Curve.String())
+		return 0, 0, fmt.Errorf("curve %s is not supported", keyLabel.Algorithm.String())
 	}
 
 	publicKeyTemplate := t[0]
@@ -143,6 +144,7 @@ func (s *SDK) GenerateKeyPair(keyLabel KeyLabel, tokenPersistent bool) (p11.Obje
 			p11.NewAttribute(p11.CKA_LABEL, keyLabel.ShortLabel()),
 		}...,
 	)
+
 	privateKeyTemplate := t[1]
 	privateKeyTemplate = append(privateKeyTemplate,
 		[]*p11.Attribute{
@@ -152,12 +154,15 @@ func (s *SDK) GenerateKeyPair(keyLabel KeyLabel, tokenPersistent bool) (p11.Obje
 			p11.NewAttribute(p11.CKA_TOKEN, tokenPersistent),
 			p11.NewAttribute(p11.CKA_LABEL, keyLabel.ShortLabel()),
 		}...)
+
 	var keyGenMechanism []*p11.Mechanism
-	if keyLabel.Curve != RSA {
-		keyGenMechanism = []*p11.Mechanism{p11.NewMechanism(p11.CKM_EC_KEY_PAIR_GEN, nil)}
-	} else {
+	switch keyLabel.Algorithm {
+	case RSA2048:
 		keyGenMechanism = []*p11.Mechanism{p11.NewMechanism(p11.CKM_RSA_PKCS_KEY_PAIR_GEN, nil)}
+	default:
+		keyGenMechanism = []*p11.Mechanism{p11.NewMechanism(p11.CKM_EC_KEY_PAIR_GEN, nil)}
 	}
+
 	pbk, pvk, err := s.P.GenerateKeyPair(s.Session, keyGenMechanism, publicKeyTemplate, privateKeyTemplate)
 	if err != nil {
 		return 0, 0, err
@@ -173,11 +178,12 @@ func (s *SDK) Sign(keyLabel KeyLabel, input []byte) ([]byte, error) {
 	}
 
 	var mechanism []*p11.Mechanism
-	if keyLabel.Curve == RSA {
+	switch keyLabel.Algorithm {
+	case RSA2048:
 		mechanism = []*p11.Mechanism{
 			p11.NewMechanism(p11.CKM_RSA_PKCS, nil),
 		}
-	} else {
+	default:
 		mechanism = []*p11.Mechanism{
 			p11.NewMechanism(p11.CKM_ECDSA, nil),
 		}
@@ -206,15 +212,17 @@ func (s *SDK) VerifySig(keyLabel KeyLabel, input []byte, sig []byte) error {
 	}
 
 	var mechanism []*p11.Mechanism
-	if keyLabel.Curve == RSA {
+	switch keyLabel.Algorithm {
+	case RSA2048:
 		mechanism = []*p11.Mechanism{
 			p11.NewMechanism(p11.CKM_RSA_PKCS, nil),
 		}
-	} else {
+	default:
 		mechanism = []*p11.Mechanism{
 			p11.NewMechanism(p11.CKM_ECDSA, nil),
 		}
 	}
+
 	// verify
 	if err := s.P.VerifyInit(s.Session, mechanism, pubk); err != nil {
 		return err
@@ -322,6 +330,32 @@ func (s *SDK) GetPublicKey(keyLabel KeyLabel) (p11.ObjectHandle, error) {
 	return objs[0], nil
 }
 
+// GetPubKeyBySig
+/**
+TODO: ethereum SigToPub does not like the sig (length 65 vs 64)
+this discussion may give some clue
+https://github.com/celo-org/optics-monorepo/discussions/598
+*/
+func (s *SDK) GetPubKeyBySig(keyLabel KeyLabel) (*ecdsa.PublicKey, error) {
+	if keyLabel.Algorithm != Secp256k1 {
+		return nil, fmt.Errorf("only secp256k1 is supported")
+	}
+	message := "sign me"
+
+	hash, err := SecureHash(message)
+	//hash, err := DigestSHA256(s.P, s.Session, message)
+	if err != nil {
+		return nil, err
+	}
+
+	sig, err := s.Sign(keyLabel, hash)
+	if err != nil {
+		return nil, err
+	}
+
+	return SigToPub(hash, sig)
+}
+
 //GetPublicKeyAttr
 /**
 SoftHSM does not calculate CKA_PUBLIC_KEY_INFO
@@ -348,7 +382,7 @@ func (s *SDK) GetPublicKeyAttr(keyLabel KeyLabel) (*p11.Attribute, error) {
 	return attr[0], nil
 }
 
-func (s *SDK) GetPublicKeyAttrFromPrivKey(keyLabel KeyLabel) (*p11.Attribute, error) {
+func (s *SDK) GetPublicKeyAttrFromPrivateKey(keyLabel KeyLabel) (*p11.Attribute, error) {
 	privk, err := s.GetPrivateKey(keyLabel)
 	if err != nil {
 		return nil, err

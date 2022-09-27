@@ -78,6 +78,25 @@ func TestGetPublicKey(t *testing.T) {
 	t.Logf("got public key obj %d for %s", obj, keyLabel.ShortLabel())
 }
 
+func TestGetPubKeyBySig(t *testing.T) {
+	pf := "Slot Token 0"
+	//pf := "projects/quantum-pilot-360000/locations/us-west1"
+	keyLabel := sdk.KeyLabel{
+		pf,
+		"WIM-test",
+		"secp256k1-hsm-1",
+		1,
+		sdk.Secp256k1,
+	}
+
+	pubKey, err := _sdk.GetPubKeyBySig(keyLabel)
+	if err != nil {
+		t.Errorf("failed to get public key for %s; error: %+v", keyLabel.ShortLabel(), err)
+	}
+
+	t.Logf("got public key obj %+v for %s", pubKey, keyLabel.ShortLabel())
+}
+
 func TestGetPublicKeyAttr(t *testing.T) {
 	pf := "Slot Token 0"
 	//pf := "projects/quantum-pilot-360000/locations/us-west1"
@@ -97,7 +116,7 @@ func TestGetPublicKeyAttr(t *testing.T) {
 	t.Logf("got public key attr %+v with length %d for %s", *attr, len(attr.Value), keyLabel.ShortLabel())
 }
 
-func TestGetPublicKeyAttrFromPrivKey(t *testing.T) {
+func TestGetPublicKeyAttrFromPrivateKey(t *testing.T) {
 	pf := "Slot Token 0"
 	//pf := "projects/quantum-pilot-360000/locations/us-west1"
 	keyLabel := sdk.KeyLabel{
@@ -108,7 +127,7 @@ func TestGetPublicKeyAttrFromPrivKey(t *testing.T) {
 		sdk.Secp256k1,
 	}
 
-	attr, err := _sdk.GetPublicKeyAttrFromPrivKey(keyLabel)
+	attr, err := _sdk.GetPublicKeyAttrFromPrivateKey(keyLabel)
 	if err != nil {
 		t.Errorf("failed to get public key attribute for %s: %+v", keyLabel.ShortLabel(), err)
 	}
@@ -127,7 +146,8 @@ func TestSignAndVerify(t *testing.T) {
 		sdk.Secp256k1,
 	}
 	message := "sign me"
-	hash, err := sdk.DigestSHA256(_sdk.P, _sdk.Session, message)
+	hash, err := sdk.SecureHash(message)
+	//hash, err := sdk.DigestSHA256(_sdk.P, _sdk.Session, message)
 	if err != nil {
 		t.Errorf("failed to hash message %s: %+v", message, err)
 	}

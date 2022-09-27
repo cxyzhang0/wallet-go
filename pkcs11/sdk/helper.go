@@ -1,20 +1,46 @@
 package sdk
 
 import (
+	"crypto/ecdsa"
+	"crypto/sha256"
 	"fmt"
+	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	p11 "github.com/miekg/pkcs11"
 	"regexp"
 	"strconv"
 	"strings"
 )
 
+type CryptographAlgorithm uint
+
+/**
+sha256 is our constant digest function. So we don't name it in the enum.
+*/
+const ( // enum
+	Secp256k1 CryptographAlgorithm = iota
+	Secp256r1
+	RSA2048
+)
+
+func (c CryptographAlgorithm) String() string {
+	switch c {
+	case Secp256k1:
+		return "Secp256k1"
+	case Secp256r1:
+		return "Secp256r1"
+	case RSA2048:
+		return "RSA2048"
+	}
+	return "Undefined"
+}
+
 //TODO: Should we include SlotId/Token?
 type KeyLabel struct {
-	Prefix  string
-	KeyRing string
-	Key     string
-	Version uint
-	Curve   Curve
+	Prefix    string
+	KeyRing   string
+	Key       string
+	Version   uint
+	Algorithm CryptographAlgorithm
 }
 
 func (l *KeyLabel) Label() string {
@@ -32,10 +58,10 @@ func (l *KeyLabel) ShortString() string {
 func (l *KeyLabel) Next() KeyLabel {
 	return KeyLabel{
 		l.Prefix,
-		l.Key,
+		l.KeyRing,
 		l.Key,
 		l.Version + 1,
-		l.Curve,
+		l.Algorithm,
 	}
 }
 func StringToKeyLabel(labelStr string) (*KeyLabel, error) {
@@ -83,26 +109,6 @@ func ShortStringToKeyLabel(labelStr string) (*KeyLabel, error) {
 		Key:     parts[n-2],
 		Version: uint(version),
 	}, nil
-}
-
-type Curve uint
-
-const ( // enum
-	Secp256k1 Curve = iota
-	Secp256r1
-	RSA
-)
-
-func (c Curve) String() string {
-	switch c {
-	case Secp256k1:
-		return "Secp256k1"
-	case Secp256r1:
-		return "Secp256r1"
-	case RSA:
-		return "RSA"
-	}
-	return "Undefined"
 }
 
 func ListAllSlots(p *p11.Ctx) {
@@ -161,4 +167,18 @@ func DigestSHA256(p *p11.Ctx, session p11.SessionHandle, message string) ([]byte
 
 	//P.DigestFinal(Session)
 	return hash, nil
+}
+
+func SecureHash(message string) ([]byte, error) {
+	plainText := []byte(message)
+	digest := sha256.New()
+	if _, err := digest.Write(plainText); err != nil {
+		return nil, err
+	}
+
+	return digest.Sum(nil), nil
+}
+
+func SigToPub(hash, sig []byte) (*ecdsa.PublicKey, error) {
+	return ethcrypto.SigToPub(hash, sig)
 }

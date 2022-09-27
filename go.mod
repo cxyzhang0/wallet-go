@@ -6,6 +6,7 @@ require (
 	cloud.google.com/go/kms v1.4.0
 	github.com/blockcypher/gobcy v1.3.1
 	github.com/brianium/mnemonic v0.0.0-20180124190051-72af92c51f88
+	github.com/ethereum/go-ethereum v1.10.25
 	github.com/miekg/pkcs11 v1.1.1
 	github.com/wemeetagain/go-hdwallet v0.1.0
 	google.golang.org/grpc v1.49.0
@@ -17,7 +18,8 @@ require (
 	cloud.google.com/go v0.102.0 // indirect
 	cloud.google.com/go/compute v1.7.0 // indirect
 	cloud.google.com/go/iam v0.3.0 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/btcsuite/btcd/btcec/v2 v2.2.0 // indirect
+	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/google/go-cmp v0.5.8 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.1.0 // indirect
