@@ -1,5 +1,6 @@
-package main
+package btctran_gcp
 
+/*
 import "testing"
 
 func TestGetPublicKey(t *testing.T) {
@@ -22,3 +23,4 @@ func TestGetKeyLabels(t *testing.T) {
 		panic(err)
 	}
 }
+*/
