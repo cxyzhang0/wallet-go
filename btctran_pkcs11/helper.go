@@ -1,4 +1,4 @@
-package btctran_gcp
+package btctran_pkcs11
 
 import (
 	"errors"
@@ -10,8 +10,8 @@ import (
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/btcsuite/btcutil"
-	"github.com/cxyzhang0/wallet-go/btctran_gcp/test/config"
-	gcpsdk "github.com/cxyzhang0/wallet-go/gcp/sdk"
+	"github.com/cxyzhang0/wallet-go/btctran_pkcs11/test/config"
+	pkcs11sdk "github.com/cxyzhang0/wallet-go/pkcs11/sdk"
 )
 
 var conf = config.ParseConfig()
@@ -19,8 +19,8 @@ var bcyAPI = gobcy.API{Token: conf.Blockcypher.Token, Coin: conf.Blockcypher.Coi
 var Conf = conf
 var BcyAPI = bcyAPI
 
-func GetLegacyAddressPubKey(keyLabel gcpsdk.KeyLabel, sdk *gcpsdk.SDK, networkParams *chaincfg.Params) (*btcutil.AddressPubKey, string, error) { // address pub key, address, error
-	pubkey, err := sdk.GetECDSAPublicKeyForSecp256k1(keyLabel)
+func GetLegacyAddressPubKey(keyLabel pkcs11sdk.KeyLabel, sdk *pkcs11sdk.SDK, networkParams *chaincfg.Params) (*btcutil.AddressPubKey, string, error) { // address pub key, address, error
+	pubkey, err := sdk.GetPublicKey(keyLabel)
 	if err != nil {
 		return nil, "", err
 	}
@@ -36,8 +36,8 @@ func GetLegacyAddressPubKey(keyLabel gcpsdk.KeyLabel, sdk *gcpsdk.SDK, networkPa
 	return addrPubKey, addr, nil
 }
 
-func GetBech32AddressPublicKey(keyLabel gcpsdk.KeyLabel, sdk *gcpsdk.SDK, networkParams *chaincfg.Params) (*btcutil.AddressPubKey, string, error) { // address pub key, address, error
-	pubkey, err := sdk.GetECDSAPublicKeyForSecp256k1(keyLabel)
+func GetBech32AddressPublicKey(keyLabel pkcs11sdk.KeyLabel, sdk *pkcs11sdk.SDK, networkParams *chaincfg.Params) (*btcutil.AddressPubKey, string, error) { // address pub key, address, error
+	pubkey, err := sdk.GetPublicKey(keyLabel)
 	if err != nil {
 		return nil, "", err
 	}

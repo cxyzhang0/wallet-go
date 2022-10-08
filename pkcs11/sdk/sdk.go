@@ -2,42 +2,48 @@ package sdk
 
 import (
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"fmt"
+	"github.com/btcsuite/btcd/btcec"
 	p11 "github.com/miekg/pkcs11"
+	"math/big"
 	"runtime"
 )
 
 var SupportedAlgorithms map[CryptographAlgorithm][][]*p11.Attribute = map[CryptographAlgorithm][][]*p11.Attribute{ // curve to [publicKeyTemplate, privateKeyTemplate]
-	Secp256k1: {{
-		p11.NewAttribute(p11.CKA_EC_PARAMS, []byte{
-			0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x0A,
-		}), // OID 1.3.132.0.10 Secp256k1
-		p11.NewAttribute(p11.CKA_VERIFY, true),
-	},
+	Secp256k1: {
+		{
+			p11.NewAttribute(p11.CKA_EC_PARAMS, []byte{
+				0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x0A,
+			}), // OID 1.3.132.0.10 Secp256k1
+			p11.NewAttribute(p11.CKA_VERIFY, true),
+		},
 		{
 			p11.NewAttribute(p11.CKA_SIGN, true),
 			p11.NewAttribute(p11.CKA_SENSITIVE, true),
 			p11.NewAttribute(p11.CKA_EXTRACTABLE, true),
 		},
 	},
-	Secp256r1: {{
-		p11.NewAttribute(p11.CKA_EC_PARAMS, []byte{
-			0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07,
-		}), // OID 1.2.840.10045.3.1.7 Secp256r1/v1, etc
-		p11.NewAttribute(p11.CKA_VERIFY, true),
-	},
+	Secp256r1: {
+		{
+			p11.NewAttribute(p11.CKA_EC_PARAMS, []byte{
+				0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07,
+			}), // OID 1.2.840.10045.3.1.7 Secp256r1/v1, etc
+			p11.NewAttribute(p11.CKA_VERIFY, true),
+		},
 		{
 			p11.NewAttribute(p11.CKA_SIGN, true),
 			p11.NewAttribute(p11.CKA_SENSITIVE, true),
 			p11.NewAttribute(p11.CKA_EXTRACTABLE, true),
 		},
 	},
-	RSA2048: {{
-		p11.NewAttribute(p11.CKA_CLASS, p11.CKO_PUBLIC_KEY),
-		p11.NewAttribute(p11.CKA_KEY_TYPE, p11.CKK_RSA),
-		p11.NewAttribute(p11.CKA_PUBLIC_EXPONENT, []byte{1, 0, 1}),
-		p11.NewAttribute(p11.CKA_MODULUS_BITS, 2048),
-	},
+	RSA2048: {
+		{
+			p11.NewAttribute(p11.CKA_CLASS, p11.CKO_PUBLIC_KEY),
+			p11.NewAttribute(p11.CKA_KEY_TYPE, p11.CKK_RSA),
+			p11.NewAttribute(p11.CKA_PUBLIC_EXPONENT, []byte{1, 0, 1}),
+			p11.NewAttribute(p11.CKA_MODULUS_BITS, 2048),
+		},
 		{
 			p11.NewAttribute(p11.CKA_SIGN, true),
 			p11.NewAttribute(p11.CKA_SENSITIVE, true),
@@ -172,7 +178,7 @@ func (s *SDK) GenerateKeyPair(keyLabel KeyLabel, tokenPersistent bool) (p11.Obje
 }
 
 func (s *SDK) Sign(keyLabel KeyLabel, input []byte) ([]byte, error) {
-	prvk, err := s.GetPrivateKey(keyLabel)
+	prvk, err := s.GetPrivateKeyHandle(keyLabel)
 	if err != nil {
 		return nil, err
 	}
@@ -185,6 +191,8 @@ func (s *SDK) Sign(keyLabel KeyLabel, input []byte) ([]byte, error) {
 		}
 	default:
 		mechanism = []*p11.Mechanism{
+			//p11.NewMechanism(p11.CKM_ECDSA_SHA256, nil), // this gives CKR_MECHANISM_INVALID
+			//p11.NewMechanism(p11.CKM_ECDSA_SHA1, nil), // this gives CKR_MECHANISM_INVALID
 			p11.NewMechanism(p11.CKM_ECDSA, nil),
 		}
 	}
@@ -206,7 +214,7 @@ func (s *SDK) Sign(keyLabel KeyLabel, input []byte) ([]byte, error) {
 }
 
 func (s *SDK) VerifySig(keyLabel KeyLabel, input []byte, sig []byte) error {
-	pubk, err := s.GetPublicKey(keyLabel)
+	pubk, err := s.GetPublicKeyHandle(keyLabel)
 	if err != nil {
 		return err
 	}
@@ -240,6 +248,30 @@ func (s *SDK) VerifySig(keyLabel KeyLabel, input []byte, sig []byte) error {
 	return nil
 }
 
+// GetChainSignature returns the serialized signature. EC only
+func (s *SDK) GetChainSignature(keyLabel KeyLabel, input []byte) ([]byte, error) {
+	if keyLabel.Algorithm == RSA2048 {
+		return nil, fmt.Errorf("only EC is supported")
+	}
+
+	sig, err := s.Sign(keyLabel, input)
+	if err != nil {
+		return nil, err
+	}
+	len := len(sig)
+	signature := btcec.Signature{
+		R: &big.Int{},
+		S: &big.Int{},
+	}
+
+	rBytes := sig[:len/2]
+	sBytes := sig[len/2:]
+	signature.R = new(big.Int).SetBytes(rBytes)
+	signature.S = new(big.Int).SetBytes(sBytes)
+
+	return signature.Serialize(), nil
+}
+
 func (s *SDK) findObjects(template []*p11.Attribute, args ...int) ([]p11.ObjectHandle, error) {
 	max := 100 // default
 	if len(args) > 0 {
@@ -262,10 +294,10 @@ func (s *SDK) findObjects(template []*p11.Attribute, args ...int) ([]p11.ObjectH
 	return objs, nil
 }
 
-// GetPrivateKey pkcs11 alllows multiple private keys with the same label
+// GetPrivateKeyHandle pkcs11 alllows multiple private keys with the same label
 // Application needs to enforce uniqueness.
 // This function will return error if uniqueness is violated.
-func (s *SDK) GetPrivateKey(keyLabel KeyLabel) (p11.ObjectHandle, error) {
+func (s *SDK) GetPrivateKeyHandle(keyLabel KeyLabel) (p11.ObjectHandle, error) {
 	label := keyLabel.ShortLabel()
 	var noKey p11.ObjectHandle
 	template := []*p11.Attribute{
@@ -303,8 +335,8 @@ func (s *SDK) GetPrivateKey(keyLabel KeyLabel) (p11.ObjectHandle, error) {
 	return objs[0], nil
 }
 
-// GetPublicKey return unique public key with the given keyLabel
-func (s *SDK) GetPublicKey(keyLabel KeyLabel) (p11.ObjectHandle, error) {
+// GetPublicKeyHandle return unique public key with the given keyLabel
+func (s *SDK) GetPublicKeyHandle(keyLabel KeyLabel) (p11.ObjectHandle, error) {
 	label := keyLabel.ShortLabel()
 	var noKey p11.ObjectHandle
 	template := []*p11.Attribute{
@@ -318,57 +350,39 @@ func (s *SDK) GetPublicKey(keyLabel KeyLabel) (p11.ObjectHandle, error) {
 	}
 
 	if len(objs) == 0 {
-		err = fmt.Errorf("private key not found")
+		err = fmt.Errorf("public key not found")
 		return noKey, err
 	}
 
 	if len(objs) > 1 {
-		err = fmt.Errorf("more than 1 private key is found")
+		err = fmt.Errorf("more than 1 public key is found")
 		return noKey, err
 	}
 
 	return objs[0], nil
 }
 
-// GetPubKeyBySig
-/**
-TODO: ethereum SigToPub does not like the sig (length 65 vs 64)
-this discussion may give some clue
-https://github.com/celo-org/optics-monorepo/discussions/598
-*/
-func (s *SDK) GetPubKeyBySig(keyLabel KeyLabel) (*ecdsa.PublicKey, error) {
-	if keyLabel.Algorithm != Secp256k1 {
-		return nil, fmt.Errorf("only secp256k1 is supported")
-	}
-	message := "sign me"
-
-	hash, err := SecureHash(message)
-	//hash, err := DigestSHA256(s.P, s.Session, message)
-	if err != nil {
-		return nil, err
-	}
-
-	sig, err := s.Sign(keyLabel, hash)
-	if err != nil {
-		return nil, err
-	}
-
-	return SigToPub(hash, sig)
-}
-
-//GetPublicKeyAttr
+//GetPublicKeyECPoint
 /**
 SoftHSM does not calculate CKA_PUBLIC_KEY_INFO
 https://github.com/opendnssec/SoftHSMv2/blob/f82d4eda55401a4d23e647d85a00a8b0c8ccf712/src/lib/P11Objects.cpp
+Neither does FX
+So we use CKA_EC_POINT instead.
 */
-func (s *SDK) GetPublicKeyAttr(keyLabel KeyLabel) (*p11.Attribute, error) {
-	pubk, err := s.GetPublicKey(keyLabel)
+func (s *SDK) GetPublicKeyECPoint(keyLabel KeyLabel) (*p11.Attribute, error) {
+	if keyLabel.Algorithm == RSA2048 {
+		return nil, fmt.Errorf("only EC curve is supported.")
+	}
+
+	pubk, err := s.GetPublicKeyHandle(keyLabel)
 	if err != nil {
 		return nil, err
 	}
 
 	template := []*p11.Attribute{
-		p11.NewAttribute(p11.CKA_PUBLIC_KEY_INFO, nil),
+		p11.NewAttribute(p11.CKA_EC_POINT, nil),
+		//p11.NewAttribute(p11.CKA_VALUE, nil),
+		//p11.NewAttribute(p11.CKA_PUBLIC_KEY_INFO, nil),
 	}
 
 	attr, err := s.P.GetAttributeValue(s.Session, p11.ObjectHandle(pubk), template)
@@ -382,8 +396,41 @@ func (s *SDK) GetPublicKeyAttr(keyLabel KeyLabel) (*p11.Attribute, error) {
 	return attr[0], nil
 }
 
+func (s *SDK) GetPublicKey(keyLabel KeyLabel) (*ecdsa.PublicKey, error) {
+	var curve elliptic.Curve
+	switch keyLabel.Algorithm {
+	case Secp256k1:
+		curve = btcec.S256()
+	case Secp256r1:
+		curve = elliptic.P256()
+	case RSA2048:
+		return nil, fmt.Errorf("only support EC")
+	}
+
+	ecPoint, err := s.GetPublicKeyECPoint(keyLabel)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(ecPoint.Value) != 67 {
+		return nil, fmt.Errorf("ecPoint length expected 67, got %d", len(ecPoint.Value))
+	}
+	pubKey := ecdsa.PublicKey{
+		Curve: curve,
+		X:     &big.Int{},
+		Y:     &big.Int{},
+	}
+	xBytes := ecPoint.Value[3:35] //the point array has 67 bytes, ignore the first 3
+	yBytes := ecPoint.Value[35:]
+
+	pubKey.X = new(big.Int).SetBytes(xBytes)
+	pubKey.Y = new(big.Int).SetBytes(yBytes)
+
+	return &pubKey, nil
+}
+
 func (s *SDK) GetPublicKeyAttrFromPrivateKey(keyLabel KeyLabel) (*p11.Attribute, error) {
-	privk, err := s.GetPrivateKey(keyLabel)
+	privk, err := s.GetPrivateKeyHandle(keyLabel)
 	if err != nil {
 		return nil, err
 	}
@@ -435,6 +482,33 @@ func (s *SDK) GetAllECKeys() ([]p11.ObjectHandle, error) {
 		return nil, err
 	}
 	return objs, nil
+}
+
+// GetPubKeyBySig
+/**
+TODO: ethereum SigToPub does not like the sig (length 65 vs 64)
+this discussion may give some clue
+https://github.com/celo-org/optics-monorepo/discussions/598
+*/
+func (s *SDK) GetPubKeyBySig(keyLabel KeyLabel) (*ecdsa.PublicKey, error) {
+	if keyLabel.Algorithm != Secp256k1 {
+		return nil, fmt.Errorf("only secp256k1 is supported")
+	}
+	message := "sign me"
+
+	hash, err := SecureHash(message)
+	//hash, err := Keccak256Hash(message)
+	//hash, err := DigestSHA256(s.P, s.Session, message)
+	if err != nil {
+		return nil, err
+	}
+
+	sig, err := s.Sign(keyLabel, hash)
+	if err != nil {
+		return nil, err
+	}
+
+	return SigToPub(hash, sig)
 }
 
 // this func may not be used since NewSDK has SetFinalizer(...)

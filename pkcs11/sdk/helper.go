@@ -36,7 +36,7 @@ func (c CryptographAlgorithm) String() string {
 
 //TODO: Should we include SlotId/Token?
 type KeyLabel struct {
-	Prefix    string
+	Prefix    string // slot
 	KeyRing   string
 	Key       string
 	Version   uint
@@ -181,4 +181,10 @@ func SecureHash(message string) ([]byte, error) {
 
 func SigToPub(hash, sig []byte) (*ecdsa.PublicKey, error) {
 	return ethcrypto.SigToPub(hash, sig)
+}
+
+func Keccak256Hash(message string) ([]byte, error) {
+	plainText := []byte(message)
+	digest := ethcrypto.Keccak256(plainText)
+	return digest, nil
 }

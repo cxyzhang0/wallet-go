@@ -1,4 +1,4 @@
-package btctran_gcp
+package btctran_pkcs11
 
 import (
 	"bytes"
@@ -8,14 +8,14 @@ import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	tsx "github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
-	gcpsdk "github.com/cxyzhang0/wallet-go/gcp/sdk"
+	pkcs11sdk "github.com/cxyzhang0/wallet-go/pkcs11/sdk"
 )
 
 const (
 	sigHashMask = 0x1f
 )
 
-func SignTx(msgTx *wire.MsgTx, req *TxReq, fromAddrScript *[]byte, sdk *gcpsdk.SDK) error {
+func SignTx(msgTx *wire.MsgTx, req *TxReq, fromAddrScript *[]byte, sdk *pkcs11sdk.SDK) error {
 	if !tsx.IsPayToWitnessPubKeyHash(*fromAddrScript) {
 		for i, txIn := range msgTx.TxIn {
 			sigScript, err := SignatureScript(
@@ -53,7 +53,7 @@ func SignTx(msgTx *wire.MsgTx, req *TxReq, fromAddrScript *[]byte, sdk *gcpsdk.S
 	return nil
 }
 
-func SignatureScript(tx *wire.MsgTx, idx int, subscript []byte, hashType tsx.SigHashType, req *TxReq, compress bool, sdk *gcpsdk.SDK) ([]byte, error) {
+func SignatureScript(tx *wire.MsgTx, idx int, subscript []byte, hashType tsx.SigHashType, req *TxReq, compress bool, sdk *pkcs11sdk.SDK) ([]byte, error) {
 	sig, err := RawTxInSignature(tx, idx, subscript, hashType, req, sdk)
 	if err != nil {
 		return nil, err
@@ -72,15 +72,15 @@ func SignatureScript(tx *wire.MsgTx, idx int, subscript []byte, hashType tsx.Sig
 }
 
 func RawTxInSignature(tx *wire.MsgTx, idx int, subScript []byte,
-	hashType tsx.SigHashType, req *TxReq, sdk *gcpsdk.SDK) ([]byte, error) {
+	hashType tsx.SigHashType, req *TxReq, sdk *pkcs11sdk.SDK) ([]byte, error) {
 
 	hash, err := tsx.CalcSignatureHash(subScript, hashType, tx, idx)
 	if err != nil {
 		return nil, err
 	}
 
-	//signature, err := key.Sign(hash)
-	sig, err := sdk.Sign(req.From, hash)
+	sig, err := sdk.GetChainSignature(req.From, hash)
+	//sig, err := sdk.Sign(req.From, hash)
 	if err != nil {
 		return nil, fmt.Errorf("cannot sign tx input: %s", err)
 	}
@@ -102,7 +102,7 @@ func RawTxInSignature(tx *wire.MsgTx, idx int, subScript []byte,
 // transaction digest algorithm defined within BIP0143.
 func WitnessSignature(tx *wire.MsgTx, sigHashes *tsx.TxSigHashes, idx int, amt int64,
 	subscript []byte, hashType tsx.SigHashType, req *TxReq,
-	compress bool, sdk *gcpsdk.SDK) (wire.TxWitness, error) {
+	compress bool, sdk *pkcs11sdk.SDK) (wire.TxWitness, error) {
 
 	sig, err := RawTxInWitnessSignature(tx, sigHashes, idx, amt, subscript,
 		hashType, req, sdk)
@@ -130,7 +130,7 @@ func WitnessSignature(tx *wire.MsgTx, sigHashes *tsx.TxSigHashes, idx int, amt i
 // signs a new sighash digest defined in BIP0143.
 func RawTxInWitnessSignature(tx *wire.MsgTx, sigHashes *tsx.TxSigHashes, idx int,
 	amt int64, subScript []byte, hashType tsx.SigHashType,
-	req *TxReq, sdk *gcpsdk.SDK) ([]byte, error) {
+	req *TxReq, sdk *pkcs11sdk.SDK) ([]byte, error) {
 
 	parsedScript, err := parseScript(subScript)
 	if err != nil {
@@ -143,13 +143,8 @@ func RawTxInWitnessSignature(tx *wire.MsgTx, sigHashes *tsx.TxSigHashes, idx int
 		return nil, err
 	}
 
-	//signature, err := key.Sign(hash)
-	//if err != nil {
-	//	return nil, fmt.Errorf("cannot sign tx input: %s", err)
-	//}
-
-	//signature, err := key.Sign(hash)
-	sig, err := sdk.Sign(req.From, hash)
+	sig, err := sdk.GetChainSignature(req.From, hash)
+	//sig, err := sdk.Sign(req.From, hash)
 	if err != nil {
 		return nil, fmt.Errorf("cannot sign tx input: %s", err)
 	}

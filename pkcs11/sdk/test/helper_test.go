@@ -88,19 +88,19 @@ func TestShortKeyLabel(t *testing.T) {
 }
 
 func TestGetAllSlots(t *testing.T) {
-	p, err := initPKCS11Context(module)
-	if err != nil {
-		t.Errorf("failed to initiate context: %+v", err)
-	}
-	sdk.ListAllSlots(p)
+	//p, err := initPKCS11Context(module)
+	//if err != nil {
+	//	t.Errorf("failed to initiate context: %+v", err)
+	//}
+	sdk.ListAllSlots(_sdk.P)
 }
 
 func TestGetSlot(t *testing.T) {
-	p, err := initPKCS11Context(module)
-	if err != nil {
-		t.Errorf("failed to initiate context: %+v", err)
-	}
-	slotId, err := sdk.GetSlot(p, tokenLabel)
+	//p, err := initPKCS11Context(module)
+	//if err != nil {
+	//	t.Errorf("failed to initiate context: %+v", err)
+	//}
+	slotId, err := sdk.GetSlot(_sdk.P, tokenLabel)
 	if err != nil {
 		t.Errorf("failed to get slot for label %s: %+v", tokenLabel, err)
 	}

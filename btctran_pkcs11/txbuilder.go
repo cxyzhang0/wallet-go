@@ -1,4 +1,4 @@
-package btctran_gcp
+package btctran_pkcs11
 
 import (
 	"bytes"
@@ -6,13 +6,13 @@ import (
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcutil"
-	gcpsdk "github.com/cxyzhang0/wallet-go/gcp/sdk"
+	pkcs11sdk "github.com/cxyzhang0/wallet-go/pkcs11/sdk"
 )
 
 type TxReq struct {
-	From         gcpsdk.KeyLabel
+	From         pkcs11sdk.KeyLabel
 	IsFromLegacy bool
-	To           gcpsdk.KeyLabel
+	To           pkcs11sdk.KeyLabel
 	IsToLegacy   bool
 	Amount       int64
 	// the following field are populated by BuildTx
@@ -29,7 +29,7 @@ type TxReq struct {
 // sdk points to a specific KMS SDK, here it is SDK for gcp KMS. The code
 // should be the same for pkcs11 SDK. So it is pluggable.
 // networkParams points to a specific BTC network: mainnet or testnet.
-func BuildTx(req *TxReq, sdk *gcpsdk.SDK, networkParams *chaincfg.Params) (string, string, error) { // (signed raw tx, tx hash, error)
+func BuildTx(req *TxReq, sdk *pkcs11sdk.SDK, networkParams *chaincfg.Params) (string, string, error) { // (signed raw tx, tx hash, error)
 	// get from addresses
 	var fromAddrPubKey, toAddrPubKey *btcutil.AddressPubKey
 	var fromAddr, toAddr string
