@@ -248,7 +248,7 @@ func (s *SDK) VerifySig(keyLabel KeyLabel, input []byte, sig []byte) error {
 	return nil
 }
 
-// GetChainSignature returns the serialized signature. EC only
+// GetChainSignature returns the serialized signature ready for btc and eth. EC only
 func (s *SDK) GetChainSignature(keyLabel KeyLabel, input []byte) ([]byte, error) {
 	if keyLabel.Algorithm == RSA2048 {
 		return nil, fmt.Errorf("only EC is supported")
@@ -396,7 +396,7 @@ func (s *SDK) GetPublicKeyECPoint(keyLabel KeyLabel) (*p11.Attribute, error) {
 	return attr[0], nil
 }
 
-func (s *SDK) GetPublicKey(keyLabel KeyLabel) (*ecdsa.PublicKey, error) {
+func (s *SDK) GetECDSAPublicKey(keyLabel KeyLabel) (*ecdsa.PublicKey, error) {
 	var curve elliptic.Curve
 	switch keyLabel.Algorithm {
 	case Secp256k1:

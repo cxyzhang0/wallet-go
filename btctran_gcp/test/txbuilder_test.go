@@ -34,7 +34,7 @@ func TestBuildTx(t *testing.T) {
 		IsFromLegacy: false,
 		To:           to,
 		IsToLegacy:   false,
-		Amount:       5000,
+		Amount:       3000,
 	}
 
 	signedTxReq, txHash, err := tran.BuildTx(&req, _sdk, networkParams)
@@ -44,6 +44,11 @@ func TestBuildTx(t *testing.T) {
 
 	t.Logf("signed tx: %s \ntx hash: %s", signedTxReq, txHash)
 
-	// broadcast?
-	//tran.BcyAPI.PushTX(signedTxReq)
+	//broadcast?
+	resp, err := tran.BcyAPI.PushTX(signedTxReq)
+	if err != nil {
+		t.Fatalf("failed to push tx %+v\n %+v", signedTxReq, err)
+	}
+
+	t.Logf("pushed tx %+v \n +%v", signedTxReq, resp)
 }

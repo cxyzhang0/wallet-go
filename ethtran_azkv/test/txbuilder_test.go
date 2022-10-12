@@ -1,8 +1,8 @@
 package test
 
 import (
-	tran "github.com/cxyzhang0/wallet-go/ethtran_gcp"
-	gcpsdk "github.com/cxyzhang0/wallet-go/gcp/sdk"
+	kmssdk "github.com/cxyzhang0/wallet-go/azkv/sdk"
+	tran "github.com/cxyzhang0/wallet-go/ethtran_azkv"
 	ubi "gitlab.com/Blockdaemon/ubiquity/ubiquity-go-client/v1/pkg/client"
 	"math/big"
 	"strconv"
@@ -11,22 +11,20 @@ import (
 
 // TestBuildTx
 // It uses Blockdaemon ubiquity API to get the nonce, and gas related parameters.
-// address1: 0xaEC11A266C0e4AcaB346Bd7aE4033b3fFB81E401
-// address2: 0x7720BBE9bc6201237AbCfD3Fb47317AC51981C71
+// address1: 0x5b85f5666C9494e69A7ADB0CCe95ada892aB3607
+// address2: 0x4A2EBB506da083caC4d61f9305dF8967E595D16b
 func TestBuildTx(t *testing.T) {
-	from := gcpsdk.KeyLabel{
-		Project:  "quantum-pilot-360000",
-		Location: "us-west1",
-		KeyRing:  "WIM-test",
-		Key:      "secp256k1-hsm-1",
-		Version:  1,
+	from := kmssdk.KeyLabel{
+		Key:     "secp256k1-hsm-1",
+		Version: "cb848fb15e3a40b49bc41cbe957ea438",
+		//Version:   "0179a6204ed7491ea5b27a87b541d5cb",
+		Algorithm: kmssdk.Secp256k1,
 	}
-	to := gcpsdk.KeyLabel{
-		Project:  "quantum-pilot-360000",
-		Location: "us-west1",
-		KeyRing:  "WIM-test",
-		Key:      "secp256k1-hsm-1",
-		Version:  2,
+	to := kmssdk.KeyLabel{
+		Key: "secp256k1-hsm-1",
+		//Version: "cb848fb15e3a40b49bc41cbe957ea438",
+		Version:   "0179a6204ed7491ea5b27a87b541d5cb",
+		Algorithm: kmssdk.Secp256k1,
 	}
 	req := tran.TxReq{
 		From:   from,

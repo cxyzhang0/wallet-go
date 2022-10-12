@@ -143,7 +143,7 @@ func TestGetPublicKey(t *testing.T) {
 		sdk.Secp256k1,
 	}
 
-	pubKey, err := _sdk.GetPublicKey(keyLabel)
+	pubKey, err := _sdk.GetECDSAPublicKey(keyLabel)
 	if err != nil {
 		t.Fatalf("failed to get ecdsa public key for %s: %+v", keyLabel.ShortLabel(), err)
 	}

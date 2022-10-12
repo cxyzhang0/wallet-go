@@ -3,6 +3,7 @@ package test
 import (
 	tran "github.com/cxyzhang0/wallet-go/ethtran_pkcs11"
 	kmssdk "github.com/cxyzhang0/wallet-go/pkcs11/sdk"
+	ubi "gitlab.com/Blockdaemon/ubiquity/ubiquity-go-client/v1/pkg/client"
 	"math/big"
 	"strconv"
 	"testing"
@@ -40,61 +41,66 @@ func TestBuildTx(t *testing.T) {
 	}
 
 	_, fromAddr, err := tran.GetAddressPubKey(req.From, _sdk)
+	if err != nil {
+		t.Fatalf("failed to get address pubkey: %+v", err)
+	}
 
 	balances, _, err := ubiAPIClient.AccountsAPI.GetListOfBalancesByAddress(ubiCtx, ubiPlatform, ubiNetwork, fromAddr).Execute()
 	if err != nil {
-		t.Errorf("failed to get balance via ubiquity: %+v", err)
+		t.Fatalf("failed to get balance via ubiquity: %+v", err)
 	}
 	if len(balances) == 0 {
-		t.Errorf("no balance record")
+		t.Fatalf("no balance record")
 	}
+
 	balance, err := tran.StringToBigInt(balances[0].GetConfirmedBalance())
 	if err != nil {
-		t.Errorf("failed to pars big int: %+v", err)
+		t.Fatalf("failed to pars big int: %+v", err)
 	}
-	//balanceFloat, _, err := big.ParseFloat(balances[0].GetConfirmedBalance(), 10, 0, big.ToZero)
-	//if err != nil {
-	//	t.Errorf("failed to pars big int: %+v", err)
-	//}
-	//balance, _ := balanceFloat.Int(nil)
+
 	if balance.Cmp(req.Amount) != 1 {
-		t.Errorf("balance %+v <= req amount %+v", balance, req.Amount)
+		t.Fatalf("balance %+v <= req amount %+v", balance, req.Amount)
 	}
+
 	req.Nonce = uint64(balances[0].GetConfirmedNonce())
 
 	estimate, _, err := ubiAPIClient.TransactionsAPI.FeeEstimate(ubiCtx, ubiPlatform, ubiNetwork).Execute()
 	if err != nil {
-		t.Errorf("failed to get fee estimate via ubiquity: %+v", err)
+		t.Fatalf("failed to get fee estimate via ubiquity: %+v", err)
 	}
 
 	mediumMap := estimate.EstimatedFees.Medium.(map[string]interface{})
 	gasTipCapFloat, ok := mediumMap["max_priority_fee"]
 	if !ok {
-		t.Errorf("max_priority_fee is missing")
+		t.Fatalf("max_priority_fee is missing")
 	}
 	gasTipCap, err := tran.StringToBigInt(strconv.FormatFloat(gasTipCapFloat.(float64), 'e', -1, 32))
 	if err != nil {
-		t.Errorf("failed to convert gasTipCapFloat %s to big int", gasTipCapFloat)
+		t.Fatalf("failed to convert gasTipCapFloat %s to big int", gasTipCapFloat)
 	}
 	req.GasTipCap = gasTipCap
 
 	maxTotalFeeFloat, ok := mediumMap["max_total_fee"]
 	if !ok {
-		t.Errorf("max_total_fee is missing")
+		t.Fatalf("max_total_fee is missing")
 	}
 	maxTotalFee, err := tran.StringToBigInt(strconv.FormatFloat(maxTotalFeeFloat.(float64), 'e', -1, 32))
 	if err != nil {
-		t.Errorf("failed to convert maxTotalFeeFloat %s to big int", maxTotalFeeFloat)
+		t.Fatalf("failed to convert maxTotalFeeFloat %s to big int", maxTotalFeeFloat)
 	}
 	req.GasFeeCap = maxTotalFee
 
 	rawSignedTx, txHash, err := tran.BuildTx(req, _sdk, chainConfig)
 	if err != nil {
-		t.Errorf("failed to build tx: %+v", err)
+		t.Fatalf("failed to build tx: %+v", err)
 	}
 
 	t.Logf("signed tx: %s \ntx hash: %s", rawSignedTx, txHash)
 
-	//receipt, httpResponse, err := ubiAPIClient.TransactionsAPI.TxSend(ubiCtx, ubiPlatform, ubiNetwork).SignedTx(ubi.SignedTx{Tx: rawSignedTx}).Execute()
-	//t.Logf("receipt: %+v \nhttp response: %+v", receipt, httpResponse)
+	receipt, httpResponse, err := ubiAPIClient.TransactionsAPI.TxSend(ubiCtx, ubiPlatform, ubiNetwork).SignedTx(ubi.SignedTx{Tx: rawSignedTx}).Execute()
+	if err != nil {
+		t.Fatalf("failed to send tx %s \ntx hash %s\n %+v", rawSignedTx, txHash, err)
+	}
+
+	t.Logf("receipt: %+v \nhttp response: %+v", receipt, httpResponse)
 }

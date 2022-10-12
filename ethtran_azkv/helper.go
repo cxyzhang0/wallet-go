@@ -1,14 +1,14 @@
-package ethtran_pkcs11
+package ethtran_azkv
 
 import (
 	"fmt"
-	pkcs11sdk "github.com/cxyzhang0/wallet-go/pkcs11/sdk"
+	kmssdk "github.com/cxyzhang0/wallet-go/azkv/sdk"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"math/big"
 )
 
-func GetAddressPubKey(keyLabel pkcs11sdk.KeyLabel, sdk *pkcs11sdk.SDK) (*common.Address, string, error) { // address pub key, address, error
+func GetAddressPubKey(keyLabel kmssdk.KeyLabel, sdk *kmssdk.SDK) (*common.Address, string, error) { // address pub key, address, error
 	pubkey, err := sdk.GetECDSAPublicKey(keyLabel)
 	if err != nil {
 		return nil, "", err

@@ -31,7 +31,7 @@ func TestGenerateKeyPair(t *testing.T) {
 	}
 	result, err := _sdk.GenerateKeyPair(keyLabel)
 	if err != nil {
-		t.Errorf("failed to generate key pair for %s: %+v", keyLabel.String(), err)
+		t.Fatalf("failed to generate key pair for %s: %+v", keyLabel.String(), err)
 	}
 
 	t.Logf("key pair %s created at %v", result.Name, result.CreateTime)
