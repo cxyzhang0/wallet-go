@@ -34,8 +34,8 @@ func (s *SDK) GenerateKeyPair(keyLabel KeyLabel) (*azkeys.CreateKeyResponse, err
 	case Secp256k1:
 		params = azkeys.CreateKeyParameters{
 			Curve: to.Ptr(azkeys.JSONWebKeyCurveNameP256K),
-			Kty:   to.Ptr(azkeys.JSONWebKeyTypeEC),
-			//Kty:   to.Ptr(azkeys.JSONWebKeyTypeECHSM),
+			Kty:   to.Ptr(azkeys.JSONWebKeyTypeEC), // non HSM
+			//Kty: to.Ptr(azkeys.JSONWebKeyTypeECHSM), // HSM
 		}
 	case Secp256p:
 		params = azkeys.CreateKeyParameters{

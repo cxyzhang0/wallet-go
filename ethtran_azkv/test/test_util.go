@@ -22,12 +22,14 @@ var (
 	_sdk         *kmssdk.SDK
 
 	ubiURL         = "https://svc.blockdaemon.com/universal/v1"
+	ubiNativeURL   = "https://svc.blockdaemon.com"
 	ubiPlatform    = "ethereum"
 	ubiNetwork     = "goerli"
 	ubiAccessToken = "0CufGocrOhFvDLWTfbX5kHaOCRlmFmD7BjW-TrY0mRiHNs21"
 	ubiAPIClient   *ubi.APIClient
 	ubiCtx         context.Context
 	chainConfig    *params.ChainConfig = params.GoerliChainConfig
+	quicknodeURL                       = "https://dark-cosmopolitan-seed.ethereum-goerli.discover.quiknode.pro/dc6e17a2cfbc338c5e59511eed170c97cc7cfa15/"
 )
 
 func init() {

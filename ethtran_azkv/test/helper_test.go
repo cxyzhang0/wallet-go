@@ -23,3 +23,9 @@ func TestGetAddressPubKey(t *testing.T) {
 
 	t.Logf("got pub key addr for %+v: %+v; %s", keyLabel, addrPubKey, addr)
 }
+
+func TestDeployContrct(t *testing.T) {
+
+}
+
+

@@ -20,8 +20,8 @@ var (
 	_sdk          *kmssdk.SDK
 	networkParams *chaincfg.Params
 
-	wsHost = "socket.blockcypher.com"
-	wsPath = "v1/btc/test3?token=e905d13ae51748e2b618da1ba4ce0458"
+	//wsHost = "socket.blockcypher.com"
+	//wsPath = "v1/btc/test3?token=e905d13ae51748e2b618da1ba4ce0458"
 )
 
 func init() {

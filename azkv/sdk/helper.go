@@ -33,11 +33,28 @@ type KeyLabel struct {
 }
 
 func SecureHash(message string) ([]byte, error) {
-	plainText := []byte(message)
+	return SecureHashByteArray([]byte(message))
+	//plainText := []byte(message)
+	//digest := sha256.New()
+	//if _, err := digest.Write(plainText); err != nil {
+	//	return nil, err
+	//}
+	//
+	//return digest.Sum(nil), nil
+}
+
+func SecureHashByteArray(message []byte) ([]byte, error) {
 	digest := sha256.New()
-	if _, err := digest.Write(plainText); err != nil {
+	if _, err := digest.Write(message); err != nil {
 		return nil, err
 	}
 
 	return digest.Sum(nil), nil
+}
+
+type TxConfirmationEvent struct {
+	Event         string `json:"event"`
+	Address       string `json:"address"`
+	Hash          string `json:"hash"`
+	Confirmations int    `json:"confirmations"`
 }

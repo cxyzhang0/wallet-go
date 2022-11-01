@@ -1,21 +1,25 @@
 package ethtran_azkv
 
 import (
-	"encoding/asn1"
+	"context"
 	"fmt"
-	btcecdsa "github.com/btcsuite/btcd/btcec/v2/ecdsa"
 	kmssdk "github.com/cxyzhang0/wallet-go/azkv/sdk"
+	"github.com/cxyzhang0/wallet-go/ethtran_azkv/contract"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
 	"math/big"
+	"sort"
+	"strings"
 )
 
 type TxReq struct {
 	From      kmssdk.KeyLabel
 	To        kmssdk.KeyLabel
+	ToAddr    string
 	Amount    *big.Int
 	Nonce     uint64
 	GasTipCap *big.Int
@@ -37,9 +41,21 @@ func BuildTx(req TxReq, sdk *kmssdk.SDK, chainConfig *params.ChainConfig) (strin
 		return "", "", err
 	}
 
-	toAddrPubKey, _, err := GetAddressPubKey(req.To, sdk)
-	if err != nil {
-		return "", "", err
+	var toAddrPubKey *common.Address
+	if req.ToAddr != "" {
+		addr := common.HexToAddress(req.ToAddr)
+		toAddrPubKey = &addr
+		//b, err := hexutil.Decode(req.ToAddr)
+		//if err != nil {
+		//	return "", "", err
+		//}
+		//toAddrPubKey = (*common.Address)(b)
+	} else {
+		addr, _, err := GetAddressPubKey(req.To, sdk)
+		if err != nil {
+			return "", "", err
+		}
+		toAddrPubKey = addr
 	}
 
 	var data []byte
@@ -63,83 +79,262 @@ func BuildTx(req TxReq, sdk *kmssdk.SDK, chainConfig *params.ChainConfig) (strin
 		return "", "", err
 	}
 
-	var pubKeyAddr func([]byte) common.Address // TODO: is it more efficient to have it as a standard external func?
-	pubKeyAddr = func(bytes []byte) common.Address {
-		digest := crypto.Keccak256(bytes[1:])
-		var addr common.Address
-		copy(addr[:], digest[12:])
-		return addr
-	}
-
-	// parse sig
-	var params struct{ R, S *big.Int }
-	_, err = asn1.Unmarshal(signature, &params)
+	sig, err := GetCompleteSignature(signature, txHash, fromAddrPubKey)
 	if err != nil {
-		return "", "", fmt.Errorf("asymmetric signature encoding: %w", err)
-	}
-	var rLen, sLen int // byte size
-	if params.R != nil {
-		rLen = (params.R.BitLen() + 7) / 8
-	}
-	if params.S != nil {
-		sLen = (params.S.BitLen() + 7) / 8
-	}
-	if rLen == 0 || rLen > 32 || sLen == 0 || sLen > 32 {
-		return "", "", fmt.Errorf("asymmetric signature with %d-byte r and %d-byte s denied on size", rLen, sLen)
+		return "", "", err
 	}
 
-	// Need uncompressed signature with "recovery ID" at end:
-	// https://bitcointalk.org/index.php?topic=5249677.0
-	// https://ethereum.stackexchange.com/a/53182/39582
-	var sig [66]byte // + 1-byte header + 1-byte tailer
-	params.R.FillBytes(sig[33-rLen : 33])
-	params.S.FillBytes(sig[65-sLen : 65])
+	signedTx, err := tx.WithSignature(signer, sig)
+	if err != nil {
+		return "", "", err
+	}
 
-	// brute force try includes KMS verification
-	var recoverErr error
-	for recoveryID := byte(0); recoveryID < 2; recoveryID++ {
-		sig[0] = recoveryID + 27 // BitCoin header
-		btcsig := sig[:65]       // exclude Ethereum 'v' parameter
-		pubKey, _, err := btcecdsa.RecoverCompact(btcsig, txHash[:])
+	raw, err := signedTx.MarshalBinary()
+	//raw, err := rlp.EncodeToBytes(signedTx)
+	if err != nil {
+		return "", "", fmt.Errorf("unable to encode signed tx to bytes %+v", err)
+	}
+	return hexutil.Encode(raw), fmt.Sprintf("0x%x", signedTx.Hash().Bytes()), nil
+
+	//return GetSignedTx(signature, tx, signer, txHash, fromAddrPubKey)
+
+	/*
+		var pubKeyAddr func([]byte) common.Address // TODO: is it more efficient to have it as a standard external func?
+		pubKeyAddr = func(bytes []byte) common.Address {
+			digest := crypto.Keccak256(bytes[1:])
+			var addr common.Address
+			copy(addr[:], digest[12:])
+			return addr
+		}
+
+		// parse sig
+		var params struct{ R, S *big.Int }
+		_, err = asn1.Unmarshal(signature, &params)
 		if err != nil {
-			recoverErr = err
-			continue
+			return "", "", fmt.Errorf("asymmetric signature encoding: %w", err)
+		}
+		var rLen, sLen int // byte size
+		if params.R != nil {
+			rLen = (params.R.BitLen() + 7) / 8
+		}
+		if params.S != nil {
+			sLen = (params.S.BitLen() + 7) / 8
+		}
+		if rLen == 0 || rLen > 32 || sLen == 0 || sLen > 32 {
+			return "", "", fmt.Errorf("asymmetric signature with %d-byte r and %d-byte s denied on size", rLen, sLen)
 		}
 
-		if pubKeyAddr(pubKey.SerializeUncompressed()) == *fromAddrPubKey {
-			// sign the transaction
-			sig[65] = recoveryID // Ethereum 'v' parameter
+		// Need uncompressed signature with "recovery ID" at end:
+		// https://bitcointalk.org/index.php?topic=5249677.0
+		// https://ethereum.stackexchange.com/a/53182/39582
+		var sig [66]byte // + 1-byte header + 1-byte tailer
+		params.R.FillBytes(sig[33-rLen : 33])
+		params.S.FillBytes(sig[65-sLen : 65])
 
-			signedTx, err := tx.WithSignature(signer, sig[1:])
+		// brute force try includes KMS verification
+		var recoverErr error
+		for recoveryID := byte(0); recoveryID < 2; recoveryID++ {
+			sig[0] = recoveryID + 27 // BitCoin header
+			btcsig := sig[:65]       // exclude Ethereum 'v' parameter
+			pubKey, _, err := btcecdsa.RecoverCompact(btcsig, txHash[:])
 			if err != nil {
-				return "", "", err
+				recoverErr = err
+				continue
 			}
 
-			raw, err := signedTx.MarshalBinary()
-			//raw, err := rlp.EncodeToBytes(signedTx)
-			if err != nil {
-				return "", "", fmt.Errorf("unable to encode signed tx to bytes %+v", err)
-			}
-			return hexutil.Encode(raw), fmt.Sprintf("0x%x", signedTx.Hash().Bytes()), nil
-			//return fmt.Sprintf("0x%x", raw), fmt.Sprintf("0x%x", signedTx.Hash().Bytes()), nil
-			//return hex.EncodeToString(raw), signedTx.Hash().String(), nil
+			if pubKeyAddr(pubKey.SerializeUncompressed()) == *fromAddrPubKey {
+				// sign the transaction
+				sig[65] = recoveryID // Ethereum 'v' parameter
 
-			//// sign the transaction
-			//sig[65] = recoveryID // Ethereum 'v' parameter
-			//etcsig := sig[1:]    // exclude BitCoin header
-			//signedTx, err := tx.WithSignature(signer, etcsig)
-			//if err == nil {
-			//	return "", "", err
-			//}
-			//
-			//raw, err := rlp.EncodeToBytes(signedTx)
-			//if err != nil {
-			//	return "", "", fmt.Errorf("unable to encode signed tx to bytes %+v", err)
-			//}
-			//return hex.EncodeToString(raw), signedTx.Hash().String(), nil
+				signedTx, err := tx.WithSignature(signer, sig[1:])
+				if err != nil {
+					return "", "", err
+				}
+
+				raw, err := signedTx.MarshalBinary()
+				//raw, err := rlp.EncodeToBytes(signedTx)
+				if err != nil {
+					return "", "", fmt.Errorf("unable to encode signed tx to bytes %+v", err)
+				}
+				return hexutil.Encode(raw), fmt.Sprintf("0x%x", signedTx.Hash().Bytes()), nil
+				//return fmt.Sprintf("0x%x", raw), fmt.Sprintf("0x%x", signedTx.Hash().Bytes()), nil
+				//return hex.EncodeToString(raw), signedTx.Hash().String(), nil
+
+				//// sign the transaction
+				//sig[65] = recoveryID // Ethereum 'v' parameter
+				//etcsig := sig[1:]    // exclude BitCoin header
+				//signedTx, err := tx.WithSignature(signer, etcsig)
+				//if err == nil {
+				//	return "", "", err
+				//}
+				//
+				//raw, err := rlp.EncodeToBytes(signedTx)
+				//if err != nil {
+				//	return "", "", fmt.Errorf("unable to encode signed tx to bytes %+v", err)
+				//}
+				//return hex.EncodeToString(raw), signedTx.Hash().String(), nil
+			}
 		}
+		// recoverErr can be nil, but that's OK
+		return "", "", fmt.Errorf("asymmetric signature address recovery mis: %w", recoverErr)
+	*/
+}
+
+type AddressInfo struct {
+	KeyLabel kmssdk.KeyLabel
+	Address  common.Address
+}
+
+type MultisigDeployTxReq struct {
+	From         kmssdk.KeyLabel // deploy from
+	FromAddress  *common.Address
+	MultisigFrom []kmssdk.KeyLabel // for multisig wallet owners
+	M            uint32
+	Nonce        uint64
+	GasLimit     uint64
+	GasPrice     *big.Int
+}
+
+type MultisigTxReq struct {
+	From                kmssdk.KeyLabel
+	FromAddress         *common.Address
+	ContractAddress     *common.Address
+	MultisigAddressInfo []*AddressInfo // for multisig wallet owners, to be sorted by Address
+	//MultisigFrom    []kmssdk.KeyLabel // for multisig wallet owners
+	M        uint32
+	To       kmssdk.KeyLabel
+	Amount   *big.Int
+	Nonce    uint64
+	GasLimit uint64
+	GasPrice *big.Int
+	Data     []byte
+}
+
+// BuildDeployContractTx
+// Build a tx to deploy multisig contract and deploy it.
+func BuildDeployContractTx(req MultisigDeployTxReq, sdk *kmssdk.SDK, client *ethclient.Client, chainConfig *params.ChainConfig) (common.Address, *types.Transaction, *contract.Contract, error) {
+	nilAddress := common.Address{}
+	//fromAddrPubKey := req.FromAddress
+
+	auth, err := NewKeyedTransactorWithChainID(req.From, sdk /*fromAddrPubKey,*/, chainConfig.ChainID)
+	if err != nil {
+		return nilAddress, nil, nil, err
 	}
-	// recoverErr can be nil, but that's OK
-	return "", "", fmt.Errorf("asymmetric signature address recovery mis: %w", recoverErr)
 
+	auth.Nonce = big.NewInt(int64(req.Nonce))
+	auth.Value = big.NewInt(0) // 0 for deploy contract tx
+	auth.GasLimit = req.GasLimit
+	auth.GasPrice = req.GasPrice
+
+	multisigAddresses := make([]common.Address, len(req.MultisigFrom))
+	for i, keyLabel := range req.MultisigFrom {
+		addrPubKey, _, err := GetAddressPubKey(keyLabel, sdk)
+		if err != nil {
+			return nilAddress, nil, nil, err
+		}
+
+		multisigAddresses[i] = *addrPubKey
+	}
+
+	// multisigAddresses in strictly increasing order
+	sort.Slice(multisigAddresses, func(i, j int) bool {
+		return strings.ToLower(multisigAddresses[i].String()) < strings.ToLower(multisigAddresses[j].String())
+	})
+
+	return contract.DeployContract(auth, client, big.NewInt(int64(req.M)), multisigAddresses, chainConfig.ChainID)
+}
+
+// BuildMultisigTx
+// Build a multisig tx and deploy it
+func BuildMultisigTx(req MultisigTxReq, sdk *kmssdk.SDK, client *ethclient.Client, chainConfig *params.ChainConfig) (*types.Transaction, error) {
+	toAddrPubKey, _, err := GetAddressPubKey(req.To, sdk)
+	if err != nil {
+		return nil, err
+	}
+
+	auth, err := NewKeyedTransactorWithChainID(req.From, sdk, chainConfig.ChainID)
+	if err != nil {
+		return nil, err
+	}
+
+	auth.Nonce = big.NewInt(int64(req.Nonce))
+	auth.Value = big.NewInt(0) // 0 for deploy contract tx
+	auth.GasLimit = req.GasLimit
+	auth.GasPrice = req.GasPrice
+
+	//multisigAddresses := make([]common.Address, len(req.MultisigAddressInfo))
+	//for i, addressInfo := range req.MultisigAddressInfo {
+	//	addrPubKey, _, err := GetAddressPubKey(addressInfo.KeyLabel, sdk)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//
+	//	multisigAddresses[i] = *addrPubKey
+	//}
+	//
+	//// multisigAddresses in strictly increasing order
+	//sort.Slice(multisigAddresses, func(i, j int) bool {
+	//	return strings.ToLower(multisigAddresses[i].String()) < strings.ToLower(multisigAddresses[j].String())
+	//})
+
+	sort.Slice(req.MultisigAddressInfo, func(i, j int) bool {
+		return strings.ToLower(req.MultisigAddressInfo[i].Address.String()) < strings.ToLower(req.MultisigAddressInfo[j].Address.String())
+	})
+	// contract instance
+	instance, err := contract.NewContract(*req.ContractAddress, client)
+	if err != nil {
+		return nil, err
+	}
+
+	var data []byte
+
+	var (
+		sigV = make([]uint8, req.M)
+		sigR = make([][32]byte, req.M)
+		sigS = make([][32]byte, req.M)
+	)
+
+	return instance.Execute(auth, sigV, sigR, sigS, *toAddrPubKey, req.Amount, data, *req.FromAddress, big.NewInt(int64(req.GasLimit)))
+
+	//return contract.DeployContract(auth, client, big.NewInt(int64(req.M)), addresses, chainConfig.ChainID)
+}
+
+//func NewKeyedTransactorWithChainID(req MultisigDeployTxReq, sdk *kmssdk.SDK, fromAddrPubKey *common.Address, chainID *big.Int) (*bind.TransactOpts, error) {
+func NewKeyedTransactorWithChainID(fromKeyLabel kmssdk.KeyLabel, sdk *kmssdk.SDK /*fromAddrPubKey *common.Address,*/, chainID *big.Int) (*bind.TransactOpts, error) {
+	fromAddrPubKey, _, err := GetAddressPubKey(fromKeyLabel, sdk)
+	if err != nil {
+		return nil, err
+	}
+	//keyAddr := crypto.PubkeyToAddress(key.PublicKey)
+	if chainID == nil {
+		return nil, bind.ErrNoChainID
+	}
+	signer := types.LatestSignerForChainID(chainID)
+	return &bind.TransactOpts{
+		From: *fromAddrPubKey,
+		Signer: func(address common.Address, tx *types.Transaction) (*types.Transaction, error) {
+			if address != *fromAddrPubKey {
+				return nil, bind.ErrNotAuthorized
+			}
+
+			txHash := signer.Hash(tx)
+
+			signature, err := sdk.GetChainSignature(fromKeyLabel, txHash.Bytes())
+			if err != nil {
+				return nil, err
+			}
+
+			sig, err := GetCompleteSignature(signature, txHash, fromAddrPubKey)
+			if err != nil {
+				return nil, err
+			}
+
+			//signature, err := crypto.Sign(signer.Hash(tx).Bytes(), key)
+			//if err != nil {
+			//	return nil, err
+			//}
+			return tx.WithSignature(signer, sig)
+		},
+		Context: context.Background(),
+	}, nil
 }

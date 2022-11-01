@@ -16,6 +16,9 @@ const (
 )
 
 func SignTx(msgTx *wire.MsgTx, req *TxReq, fromAddrScript *[]byte, sdk *kmssdk.SDK) error {
+	//tsx.SignTxOutput(&chaincfg.TestNet3Params, msgTx)
+	//tsx.KeyClosure()
+	//tsx.ScriptClosure()
 	if !tsx.IsPayToWitnessPubKeyHash(*fromAddrScript) {
 		for i, txIn := range msgTx.TxIn {
 			sigScript, err := SignatureScript(
@@ -54,7 +57,7 @@ func SignTx(msgTx *wire.MsgTx, req *TxReq, fromAddrScript *[]byte, sdk *kmssdk.S
 }
 
 func SignatureScript(tx *wire.MsgTx, idx int, subscript []byte, hashType tsx.SigHashType, req *TxReq, compress bool, sdk *kmssdk.SDK) ([]byte, error) {
-	sig, err := RawTxInSignature(tx, idx, subscript, hashType, req, sdk)
+	sig, err := RawTxInSignature(tx, idx, subscript, hashType, req.From, sdk)
 	if err != nil {
 		return nil, err
 	}
@@ -72,14 +75,15 @@ func SignatureScript(tx *wire.MsgTx, idx int, subscript []byte, hashType tsx.Sig
 }
 
 func RawTxInSignature(tx *wire.MsgTx, idx int, subScript []byte,
-	hashType tsx.SigHashType, req *TxReq, sdk *kmssdk.SDK) ([]byte, error) {
+	hashType tsx.SigHashType /*req *TxReq,*/, fromKeyLabel kmssdk.KeyLabel, sdk *kmssdk.SDK) ([]byte, error) {
 
 	hash, err := tsx.CalcSignatureHash(subScript, hashType, tx, idx)
 	if err != nil {
 		return nil, err
 	}
 
-	sig, err := sdk.GetChainSignature(req.From, hash)
+	sig, err := sdk.GetChainSignature(fromKeyLabel, hash)
+	//sig, err := sdk.GetChainSignature(req.From, hash)
 	//sig, err := sdk.Sign(req.From, hash)
 	if err != nil {
 		return nil, fmt.Errorf("cannot sign tx input: %s", err)
@@ -144,6 +148,40 @@ func RawTxInWitnessSignature(tx *wire.MsgTx, sigHashes *tsx.TxSigHashes, idx int
 	}
 
 	sig, err := sdk.GetChainSignature(req.From, hash)
+	//sig, err := sdk.Sign(req.From, hash)
+	if err != nil {
+		return nil, fmt.Errorf("cannot sign tx input: %s", err)
+	}
+
+	signature, err := btcec.ParseDERSignature(sig, btcec.S256())
+	//signature, err := btcec.ParseSignature(sig, btcec.S256()) // this one works too
+	if err != nil {
+		return nil, err
+	}
+
+	return append(signature.Serialize(), byte(hashType)), nil
+}
+
+// RawTxInWitnessSignature returns the serialized ECDA signature for the input
+// idx of the given transaction, with the hashType appended to it. This
+// function is identical to RawTxInSignature, however the signature generated
+// signs a new sighash digest defined in BIP0143.
+func RawTxInMultisigWitnessSignature(tx *wire.MsgTx, sigHashes *tsx.TxSigHashes, idx int,
+	amt int64, subScript []byte, hashType tsx.SigHashType,
+	fromKeyLabel kmssdk.KeyLabel, sdk *kmssdk.SDK) ([]byte, error) {
+
+	parsedScript, err := parseScript(subScript)
+	if err != nil {
+		return nil, fmt.Errorf("cannot parse output script: %v", err)
+	}
+
+	hash, err := calcWitnessSignatureHash(parsedScript, sigHashes, hashType, tx,
+		idx, amt)
+	if err != nil {
+		return nil, err
+	}
+
+	sig, err := sdk.GetChainSignature(fromKeyLabel, hash)
 	//sig, err := sdk.Sign(req.From, hash)
 	if err != nil {
 		return nil, fmt.Errorf("cannot sign tx input: %s", err)
