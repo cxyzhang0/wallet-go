@@ -79,7 +79,7 @@ func BuildTx(req TxReq, sdk *kmssdk.SDK, chainConfig *params.ChainConfig) (strin
 		return "", "", err
 	}
 
-	sig, err := GetCompleteSignature(signature, txHash, fromAddrPubKey)
+	sig, err := GetCompleteSignature(signature, txHash[:], fromAddrPubKey)
 	if err != nil {
 		return "", "", err
 	}
@@ -196,18 +196,21 @@ type MultisigDeployTxReq struct {
 }
 
 type MultisigTxReq struct {
-	From                kmssdk.KeyLabel
-	FromAddress         *common.Address
+	Executor            kmssdk.KeyLabel
+	ExecutorAddress     *common.Address
 	ContractAddress     *common.Address
 	MultisigAddressInfo []*AddressInfo // for multisig wallet owners, to be sorted by Address
 	//MultisigFrom    []kmssdk.KeyLabel // for multisig wallet owners
-	M        uint32
-	To       kmssdk.KeyLabel
-	Amount   *big.Int
-	Nonce    uint64
-	GasLimit uint64
-	GasPrice *big.Int
-	Data     []byte
+	M                     uint32
+	To                    kmssdk.KeyLabel
+	ToAddress             *common.Address
+	Amount                *big.Int
+	ExecutorNonce         uint64
+	ContractNonce         uint64
+	ContractVariableNonce uint64
+	GasLimit              uint64
+	GasPrice              *big.Int
+	Data                  []byte
 }
 
 // BuildDeployContractTx
@@ -252,13 +255,13 @@ func BuildMultisigTx(req MultisigTxReq, sdk *kmssdk.SDK, client *ethclient.Clien
 		return nil, err
 	}
 
-	auth, err := NewKeyedTransactorWithChainID(req.From, sdk, chainConfig.ChainID)
+	auth, err := NewKeyedTransactorWithChainID(req.Executor, sdk, chainConfig.ChainID)
 	if err != nil {
 		return nil, err
 	}
 
-	auth.Nonce = big.NewInt(int64(req.Nonce))
-	auth.Value = big.NewInt(0) // 0 for deploy contract tx
+	auth.Nonce = big.NewInt(int64(req.ExecutorNonce))
+	auth.Value = req.Amount
 	auth.GasLimit = req.GasLimit
 	auth.GasPrice = req.GasPrice
 
@@ -286,15 +289,23 @@ func BuildMultisigTx(req MultisigTxReq, sdk *kmssdk.SDK, client *ethclient.Clien
 		return nil, err
 	}
 
-	var data []byte
-
 	var (
 		sigV = make([]uint8, req.M)
 		sigR = make([][32]byte, req.M)
 		sigS = make([][32]byte, req.M)
 	)
 
-	return instance.Execute(auth, sigV, sigR, sigS, *toAddrPubKey, req.Amount, data, *req.FromAddress, big.NewInt(int64(req.GasLimit)))
+	for i := 0; i < int(req.M); i++ {
+		v, r, s, err := createSig(req, sdk, i, chainConfig.ChainID.Int64())
+		if err != nil {
+			return nil, err
+		}
+		sigV[i] = v
+		sigR[i] = r
+		sigS[i] = s
+	}
+
+	return instance.Execute(auth, sigV, sigR, sigS, *toAddrPubKey, req.Amount, req.Data, *req.ExecutorAddress, big.NewInt(int64(req.GasLimit)))
 
 	//return contract.DeployContract(auth, client, big.NewInt(int64(req.M)), addresses, chainConfig.ChainID)
 }
@@ -324,7 +335,7 @@ func NewKeyedTransactorWithChainID(fromKeyLabel kmssdk.KeyLabel, sdk *kmssdk.SDK
 				return nil, err
 			}
 
-			sig, err := GetCompleteSignature(signature, txHash, fromAddrPubKey)
+			sig, err := GetCompleteSignature(signature, txHash[:], fromAddrPubKey)
 			if err != nil {
 				return nil, err
 			}
