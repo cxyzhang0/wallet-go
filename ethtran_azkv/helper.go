@@ -11,9 +11,9 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	log "github.com/sirupsen/logrus"
 	"math/big"
 	"strconv"
-	"strings"
 )
 
 func GetAddressPubKey(keyLabel kmssdk.KeyLabel, sdk *kmssdk.SDK) (*common.Address, string, error) { // address pub key, address, error
@@ -191,15 +191,149 @@ const (
 	allZero = "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" //做padding用
 )
 
+func getTotalHashForMultisig(req MultisigTxReq, chainiD int64) []byte {
+	var (
+		//dummyV          uint8    = 255
+		//dummyR          [32]byte //= [32]byte(byte(0))
+		//dummyS          [32]byte //= [32]byte(byte(0))
+		multisigAddr    string = req.ContractAddress.String()
+		destinationAddr string = req.ToAddress.String()
+		executor        string = req.ExecutorAddress.String()
+		nonce           int64  = int64(req.ContractVariableNonce)
+		value           int64  = req.Amount.Int64()
+		gasLimit        int64  = int64(req.GasLimit)
+		data            []byte = req.Data
+	)
+	// log.WithFields(log.Fields{
+	// 	"multiAddr": multisigAddr,
+	// 	"destAddr":  destinationAddr,
+	// 	"executor":  executor,
+	// 	"nonce":     nonce,
+	// 	"gasLmt":    gasLimit,
+	// 	"value":     value,
+	// 	"data":      data,
+	// }).Info("createSig")
+
+	//privk, err := crypto.HexToECDSA(signerPrivkHex)
+	//if err != nil {
+	//	panic(err)
+	//}
+
+	leftPad2Str := func(str string) string { // 将小于64位的字符串(hex编码的)填充至64位（64位转为byte即32位，对应32*8=256 bit）
+		needed := 64 - len(str)
+		return allZero[:needed] + str
+	}
+	i2hex := func(i int64) string { //转为16进制字符串
+		return strconv.FormatInt(i, 16)
+		// return fmt.Sprintf("%x", i)
+	}
+	hexToKeccak256ThenHex := func(byts []byte) string { // 将hex编码的字符串的字节串decode为字节串，然后进行keccak256Hash,返回hex输出
+		if bytes.Index(byts, []byte("0x")) == 0 {
+			byts = byts[2:]
+		}
+
+		decodedData, err := hex.DecodeString(string(byts))
+		if err != nil {
+			fmt.Println("byts:", string(byts))
+			panic(err)
+		}
+		return crypto.Keccak256Hash([]byte(decodedData)).Hex()
+	}
+	localKeccak256 := func(byts []byte) []byte {
+		if bytes.Index(byts, []byte("0x")) == 0 {
+			byts = byts[2:]
+		}
+
+		decodedData, err := hex.DecodeString(string(byts))
+		if err != nil {
+			fmt.Println("byts:", string(byts))
+			panic(err)
+		}
+		return crypto.Keccak256([]byte(decodedData))
+	}
+
+	domainData := eip712DomaintypeHash + nameHash[2:] + versionHash[2:] + leftPad2Str(i2hex(chainiD)) + leftPad2Str(multisigAddr[2:]) + salt[2:]
+	domainSeparatorHashHex := hexToKeccak256ThenHex([]byte(domainData))
+	txInput := txtypeHash + leftPad2Str(destinationAddr[2:]) + leftPad2Str(i2hex(value)) + hexToKeccak256ThenHex(data)[2:] + leftPad2Str(i2hex(nonce)) + leftPad2Str(executor[2:]) + leftPad2Str(i2hex(gasLimit))
+	// fmt.Println("[DBG](txInput)", txInput)
+	txInputHashHex := hexToKeccak256ThenHex([]byte(txInput))
+	log.Infof("local domainSeperatorHex: %s", domainSeparatorHashHex)
+	log.Infof("local txInputHashHex: %s", txInputHashHex)
+	//fmt.Printf("domainSeperator: %s\n", domainSeparatorHashHex)
+	//fmt.Printf("txInputHashHex: %s\n", txInputHashHex)
+
+	input := "0x19" + "01" + domainSeparatorHashHex[2:] + txInputHashHex[2:]
+	// log.Info("[DBG](txInputHashHex,input)", txInputHashHex, input)
+	// log.Info("domainData:  ", domainData)
+	// log.Info("domainSeperator: ", domainSeparatorHashHex)
+	// log.Info("txInput:  ", txInput)
+	// log.Info("txInputHashHex:  ", txInputHashHex)
+	// log.Info("input:  ", input)
+
+	hashBytes := localKeccak256([]byte(input))
+	//fmt.Printf("totalHash: %s\n", hex.EncodeToString(hashBytes))
+	log.Infof("local totalHash hex: %s", hex.EncodeToString(hashBytes))
+
+	return hashBytes
+}
+
 //return v,r,s
-func createSig(req MultisigTxReq, sdk *kmssdk.SDK, signerIndex int, chainiD int64) (uint8, [32]byte, [32]byte, error) {
+func createSig(req MultisigTxReq, sdk *kmssdk.SDK, signerIndex int, totalHash []byte) (uint8, [32]byte, [32]byte, error) {
+	var (
+		dummyV uint8    = 255
+		dummyR [32]byte //= [32]byte(byte(0))
+		dummyS [32]byte //= [32]byte(byte(0))
+	)
+
+	signature, err := sdk.GetChainSignature(req.MultisigAddressInfo[signerIndex].KeyLabel, totalHash)
+	if err != nil {
+		return dummyV, dummyR, dummyS, err
+	}
+
+	sig, err := GetCompleteSignature(signature, totalHash, &req.MultisigAddressInfo[signerIndex].Address)
+	if err != nil {
+		return dummyV, dummyR, dummyS, err
+	}
+
+	r, s, v := sig[:32], sig[32:64], uint8(int(sig[64]))+27
+
+	{ //【调试用】做内部的ecrecover验证,可移除
+		go func() {
+			rePub, err := crypto.SigToPub(totalHash, sig)
+			// rePub, err := crypto.Ecrecover([]byte(hash), sig)
+			if err != nil {
+				panic(fmt.Errorf("ecrecover err: %v", err))
+			}
+			reAddr := crypto.PubkeyToAddress(*rePub)
+			addrFromPriv := req.MultisigAddressInfo[signerIndex].Address
+			//addrFromPriv := crypto.PubkeyToAddress(privk.PublicKey)
+			fmt.Println("addrFromPrivKey vs recoverdAddr")
+			fmt.Println(addrFromPriv.Hex())
+			fmt.Println(reAddr.Hex())
+		}()
+	}
+
+	toBytes32 := func(b []byte) [32]byte {
+		b32 := new([32]byte)
+		if len(b) <= 32 {
+			copy(b32[:], b)
+		} else {
+			panic(fmt.Sprintf("overflow byte(32),actual: %d", len(b)))
+		}
+		return *b32
+	}
+	return v, toBytes32(r), toBytes32(s), nil
+}
+
+//return v,r,s
+func createSig1(req MultisigTxReq, sdk *kmssdk.SDK, signerIndex int, chainiD int64) (uint8, [32]byte, [32]byte, error) {
 	var (
 		dummyV          uint8    = 255
 		dummyR          [32]byte //= [32]byte(byte(0))
 		dummyS          [32]byte //= [32]byte(byte(0))
-		multisigAddr    string   = strings.ToLower(req.ContractAddress.String())
-		destinationAddr string   = strings.ToLower(req.ToAddress.String())
-		executor        string   = strings.ToLower(req.ExecutorAddress.String())
+		multisigAddr    string   = req.ContractAddress.String()
+		destinationAddr string   = req.ToAddress.String()
+		executor        string   = req.ExecutorAddress.String()
 		nonce           int64    = int64(req.ContractVariableNonce)
 		value           int64    = req.Amount.Int64()
 		gasLimit        int64    = int64(req.GasLimit)
@@ -258,6 +392,8 @@ func createSig(req MultisigTxReq, sdk *kmssdk.SDK, signerIndex int, chainiD int6
 	txInput := txtypeHash + leftPad2Str(destinationAddr[2:]) + leftPad2Str(i2hex(value)) + hexToKeccak256ThenHex(data)[2:] + leftPad2Str(i2hex(nonce)) + leftPad2Str(executor[2:]) + leftPad2Str(i2hex(gasLimit))
 	// fmt.Println("[DBG](txInput)", txInput)
 	txInputHashHex := hexToKeccak256ThenHex([]byte(txInput))
+	fmt.Printf("domainSeperator: %s\n", domainSeparatorHashHex)
+	fmt.Printf("txInputHashHex: %s\n", txInputHashHex)
 
 	input := "0x19" + "01" + domainSeparatorHashHex[2:] + txInputHashHex[2:]
 	// log.Info("[DBG](txInputHashHex,input)", txInputHashHex, input)
@@ -268,6 +404,7 @@ func createSig(req MultisigTxReq, sdk *kmssdk.SDK, signerIndex int, chainiD int6
 	// log.Info("input:  ", input)
 
 	hashBytes := localKeccak256([]byte(input))
+	fmt.Printf("totalHash: %s\n", hex.EncodeToString(hashBytes))
 	// log.Info("totalHash:", hex.EncodeToString(hashBytes))
 
 	signature, err := sdk.GetChainSignature(req.MultisigAddressInfo[signerIndex].KeyLabel, hashBytes)
@@ -291,21 +428,23 @@ func createSig(req MultisigTxReq, sdk *kmssdk.SDK, signerIndex int, chainiD int6
 
 	r, s, v := sig[:32], sig[32:64], uint8(int(sig[64]))+27
 
-	{ //【调试用】做内部的ecrecover验证,可移除
-		go func() {
-			rePub, err := crypto.SigToPub(hashBytes, sig)
-			// rePub, err := crypto.Ecrecover([]byte(hash), sig)
-			if err != nil {
-				panic(fmt.Errorf("ecrecover err: %v", err))
-			}
-			reAddr := crypto.PubkeyToAddress(*rePub)
-			addrFromPriv := req.MultisigAddressInfo[signerIndex].Address
-			//addrFromPriv := crypto.PubkeyToAddress(privk.PublicKey)
-			fmt.Println("addrFromPrivKey vs recoverdAddr")
-			fmt.Println(addrFromPriv.Hex())
-			fmt.Println(reAddr.Hex())
-		}()
-	}
+	/*
+		{ //【调试用】做内部的ecrecover验证,可移除
+			go func() {
+				rePub, err := crypto.SigToPub(hashBytes, sig)
+				// rePub, err := crypto.Ecrecover([]byte(hash), sig)
+				if err != nil {
+					panic(fmt.Errorf("ecrecover err: %v", err))
+				}
+				reAddr := crypto.PubkeyToAddress(*rePub)
+				addrFromPriv := req.MultisigAddressInfo[signerIndex].Address
+				//addrFromPriv := crypto.PubkeyToAddress(privk.PublicKey)
+				fmt.Println("addrFromPrivKey vs recoverdAddr")
+				fmt.Println(addrFromPriv.Hex())
+				fmt.Println(reAddr.Hex())
+			}()
+		}
+	*/
 	toBytes32 := func(b []byte) [32]byte {
 		b32 := new([32]byte)
 		if len(b) <= 32 {

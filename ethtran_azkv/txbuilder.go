@@ -2,18 +2,20 @@ package ethtran_azkv
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	kmssdk "github.com/cxyzhang0/wallet-go/azkv/sdk"
-	"github.com/cxyzhang0/wallet-go/ethtran_azkv/contract"
+	contract "github.com/cxyzhang0/wallet-go/ethtran_azkv/contract1"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
+	log "github.com/sirupsen/logrus"
 	"math/big"
 	"sort"
-	"strings"
+	"time"
 )
 
 type TxReq struct {
@@ -241,7 +243,8 @@ func BuildDeployContractTx(req MultisigDeployTxReq, sdk *kmssdk.SDK, client *eth
 
 	// multisigAddresses in strictly increasing order
 	sort.Slice(multisigAddresses, func(i, j int) bool {
-		return strings.ToLower(multisigAddresses[i].String()) < strings.ToLower(multisigAddresses[j].String())
+		return multisigAddresses[i].String() < multisigAddresses[j].String()
+		//return strings.ToLower(multisigAddresses[i].String()) < strings.ToLower(multisigAddresses[j].String())
 	})
 
 	return contract.DeployContract(auth, client, big.NewInt(int64(req.M)), multisigAddresses, chainConfig.ChainID)
@@ -250,11 +253,6 @@ func BuildDeployContractTx(req MultisigDeployTxReq, sdk *kmssdk.SDK, client *eth
 // BuildMultisigTx
 // Build a multisig tx and deploy it
 func BuildMultisigTx(req MultisigTxReq, sdk *kmssdk.SDK, client *ethclient.Client, chainConfig *params.ChainConfig) (*types.Transaction, error) {
-	toAddrPubKey, _, err := GetAddressPubKey(req.To, sdk)
-	if err != nil {
-		return nil, err
-	}
-
 	auth, err := NewKeyedTransactorWithChainID(req.Executor, sdk, chainConfig.ChainID)
 	if err != nil {
 		return nil, err
@@ -281,7 +279,8 @@ func BuildMultisigTx(req MultisigTxReq, sdk *kmssdk.SDK, client *ethclient.Clien
 	//})
 
 	sort.Slice(req.MultisigAddressInfo, func(i, j int) bool {
-		return strings.ToLower(req.MultisigAddressInfo[i].Address.String()) < strings.ToLower(req.MultisigAddressInfo[j].Address.String())
+		return req.MultisigAddressInfo[i].Address.String() < req.MultisigAddressInfo[j].Address.String()
+		//return strings.ToLower(req.MultisigAddressInfo[i].Address.String()) < strings.ToLower(req.MultisigAddressInfo[j].Address.String())
 	})
 	// contract instance
 	instance, err := contract.NewContract(*req.ContractAddress, client)
@@ -295,8 +294,16 @@ func BuildMultisigTx(req MultisigTxReq, sdk *kmssdk.SDK, client *ethclient.Clien
 		sigS = make([][32]byte, req.M)
 	)
 
+	contractDomainSeparatorHash, contractInputHash, contractTotalHash, err := instance.GetHashes(nil, *req.ToAddress, req.Amount, req.Data, *req.ExecutorAddress, big.NewInt(int64(req.GasLimit)))
+	log.Infof("contract domainSeperator hex: %s", hex.EncodeToString(contractDomainSeparatorHash[:]))
+	log.Infof("contract txInputHash hex: %s", hex.EncodeToString(contractInputHash[:]))
+	log.Infof("contract totalHash hex: %s", hex.EncodeToString(contractTotalHash[:]))
+	// total hash: 018005700fa569e71aff56924baced7c3877405e53719c8c9a597cd2384bf293
+
+	//totalHash := getTotalHashForMultisig(req, chainConfig.ChainID.Int64())
 	for i := 0; i < int(req.M); i++ {
-		v, r, s, err := createSig(req, sdk, i, chainConfig.ChainID.Int64())
+		v, r, s, err := createSig(req, sdk, i, contractTotalHash[:])
+		//v, r, s, err := createSig(req, sdk, i, totalHash)
 		if err != nil {
 			return nil, err
 		}
@@ -305,8 +312,61 @@ func BuildMultisigTx(req MultisigTxReq, sdk *kmssdk.SDK, client *ethclient.Clien
 		sigS[i] = s
 	}
 
-	return instance.Execute(auth, sigV, sigR, sigS, *toAddrPubKey, req.Amount, req.Data, *req.ExecutorAddress, big.NewInt(int64(req.GasLimit)))
+	//return instance.Execute(auth, sigV, sigR, sigS, *toAddrPubKey, req.Amount, req.Data, *req.ExecutorAddress, big.NewInt(int64(req.GasLimit)))
+	//signedTx, err := instance.Execute(auth, sigV, sigR, sigS, *toAddrPubKey, req.Amount, req.Data, *req.ExecutorAddress, big.NewInt(int64(req.GasLimit)))
+	signedTx, err := instance.Execute(auth, sigV, sigR, sigS, *req.ToAddress, req.Amount, req.Data, *req.ExecutorAddress, big.NewInt(int64(req.GasLimit)))
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute: %+v\n", err)
+	}
 
+	{ // [DEBUG] experiment with events
+		time.Sleep(time.Minute)
+		latestBlock, err := client.BlockNumber(context.Background())
+		if err != nil {
+			latestBlock = 7880537
+		}
+		go func() {
+			ito, err := instance.FilterExecuteLog(&bind.FilterOpts{
+				Start: latestBlock,
+			})
+			if err != nil {
+				log.Errorf("failed to filter execute log: %+v\n", err)
+				return
+			}
+			for {
+				if !ito.Next() {
+					log.Infof("event no more next")
+					break
+				}
+				evt := ito.Event
+				log.Infof("evt seperator: %s\n", hex.EncodeToString(evt.Sperator[:]))
+				log.Infof("evt TxInputHash: %s\n", hex.EncodeToString(evt.TxInputHash[:]))
+				log.Infof("evt TotalHash: %s\n", hex.EncodeToString(evt.TotalHash[:]))
+			}
+			log.Infof("event over")
+		}()
+
+		go func() {
+			ito, err := instance.FilterRecoverdAddr(&bind.FilterOpts{
+				Start: latestBlock,
+			})
+			if err != nil {
+				log.Errorf("failed to filter recover addr log: %+v\n", err)
+				return
+			}
+			for {
+				if !ito.Next() {
+					log.Infof("event no more next")
+					break
+				}
+				evt := ito.Event
+				log.Infof("evt recover addr: %s %s\n", evt.I.String(), evt.Addr.Hex())
+			}
+			log.Infof("event over")
+		}()
+	}
+
+	return signedTx, nil
 	//return contract.DeployContract(auth, client, big.NewInt(int64(req.M)), addresses, chainConfig.ChainID)
 }
 

@@ -5,6 +5,7 @@ go 1.18
 require (
 	cloud.google.com/go/kms v1.4.0
 	github.com/Azure/azure-sdk-for-go v66.0.0+incompatible
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.1.1
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.1.0
 	github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys v0.8.1
 	github.com/Azure/go-autorest/autorest v0.11.24
@@ -14,6 +15,8 @@ require (
 	github.com/ethereum/go-ethereum v1.10.25
 	github.com/googleapis/gax-go/v2 v2.4.0
 	github.com/miekg/pkcs11 v1.1.1
+	github.com/onrik/ethrpc v0.0.0-20190305112807-6b8e9c0e9a8f
+	github.com/sirupsen/logrus v1.4.2
 	github.com/wemeetagain/go-hdwallet v0.1.0
 	gitlab.com/Blockdaemon/ubiquity/ubiquity-go-client v1.1.0
 	google.golang.org/grpc v1.49.0
@@ -25,7 +28,6 @@ require (
 	cloud.google.com/go v0.102.0 // indirect
 	cloud.google.com/go/compute v1.7.0 // indirect
 	cloud.google.com/go/iam v0.3.0 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.1.1 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.0.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/keyvault/internal v0.7.0 // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
@@ -51,6 +53,7 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.1.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
+	github.com/konsorten/go-windows-terminal-sequences v1.0.1 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/lemon-sunxiansong/walletsdk v0.0.0-20190624085347-1cd036305d5a // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
