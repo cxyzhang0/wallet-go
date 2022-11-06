@@ -78,7 +78,7 @@ bytes32 constant SALT = 0x251543af6a222378665a76fe38dbceae4871a070b7fdaf5c6c30cf
       emit RecoverStart(i);
       address recovered = ecrecover(totalHash, sigV[i], sigR[i], sigS[i]);
       emit RecoverVerify(recovered, i);
-//      require(recovered > lastAdd && isOwner[recovered], "verify sig failed");
+      require(recovered > lastAdd && isOwner[recovered], "verify sig failed");
       emit RecoverdAddr(recovered, i);
       lastAdd = recovered;
     }

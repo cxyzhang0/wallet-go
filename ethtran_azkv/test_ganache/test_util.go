@@ -1,4 +1,4 @@
-package test
+package test_ganache
 
 import (
 	"context"
@@ -31,7 +31,11 @@ var (
 	ubiCtx         context.Context
 	chainConfig    *params.ChainConfig = params.GoerliChainConfig
 	quicknodeURL                       = "https://dark-cosmopolitan-seed.ethereum-goerli.discover.quiknode.pro/dc6e17a2cfbc338c5e59511eed170c97cc7cfa15/"
+	ganacheURL                         = "http://localhost:8545"
 )
+
+const E18 = 1000000000000000000
+const chainiD int64 = 1
 
 func init() {
 	os.Setenv("AAZURE_TENANT_ID", tenantId)
@@ -65,14 +69,14 @@ func init() {
 
 }
 
+// FailOnErr used in testing assert
 func FailOnErr(t *testing.T, e error, msg string) {
 	if e != nil {
 		t.Fatalf("Fatal on error, %s, %v", msg, e)
 	}
 }
-
 func FailOnFlag(t *testing.T, flag bool, params ...interface{}) {
 	if flag {
-		t.Fatalf("Fail on falg, %v", params)
+		t.Fatalf("Fail on flag, %v", params)
 	}
 }

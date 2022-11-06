@@ -15,7 +15,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"math/big"
 	"sort"
-	"time"
 )
 
 type TxReq struct {
@@ -217,11 +216,11 @@ type MultisigTxReq struct {
 
 // BuildDeployContractTx
 // Build a tx to deploy multisig contract and deploy it.
-func BuildDeployContractTx(req MultisigDeployTxReq, sdk *kmssdk.SDK, client *ethclient.Client, chainConfig *params.ChainConfig) (common.Address, *types.Transaction, *contract.Contract, error) {
+func BuildDeployContractTx(req MultisigDeployTxReq, sdk *kmssdk.SDK, client *ethclient.Client, chainID *big.Int) (common.Address, *types.Transaction, *contract.Contract, error) {
 	nilAddress := common.Address{}
 	//fromAddrPubKey := req.FromAddress
 
-	auth, err := NewKeyedTransactorWithChainID(req.From, sdk /*fromAddrPubKey,*/, chainConfig.ChainID)
+	auth, err := NewKeyedTransactorWithChainID(req.From, sdk /*fromAddrPubKey,*/, chainID)
 	if err != nil {
 		return nilAddress, nil, nil, err
 	}
@@ -247,19 +246,19 @@ func BuildDeployContractTx(req MultisigDeployTxReq, sdk *kmssdk.SDK, client *eth
 		//return strings.ToLower(multisigAddresses[i].String()) < strings.ToLower(multisigAddresses[j].String())
 	})
 
-	return contract.DeployContract(auth, client, big.NewInt(int64(req.M)), multisigAddresses, chainConfig.ChainID)
+	return contract.DeployContract(auth, client, big.NewInt(int64(req.M)), multisigAddresses, chainID)
 }
 
 // BuildMultisigTx
 // Build a multisig tx and deploy it
-func BuildMultisigTx(req MultisigTxReq, sdk *kmssdk.SDK, client *ethclient.Client, chainConfig *params.ChainConfig) (*types.Transaction, error) {
-	auth, err := NewKeyedTransactorWithChainID(req.Executor, sdk, chainConfig.ChainID)
+func BuildMultisigTx(req MultisigTxReq, sdk *kmssdk.SDK, client *ethclient.Client, chainID *big.Int) (*types.Transaction, error) {
+	auth, err := NewKeyedTransactorWithChainID(req.Executor, sdk, chainID)
 	if err != nil {
 		return nil, err
 	}
 
 	auth.Nonce = big.NewInt(int64(req.ExecutorNonce))
-	auth.Value = req.Amount
+	//auth.Value = req.Amount // NOTE: don't set value
 	auth.GasLimit = req.GasLimit
 	auth.GasPrice = req.GasPrice
 
@@ -298,11 +297,11 @@ func BuildMultisigTx(req MultisigTxReq, sdk *kmssdk.SDK, client *ethclient.Clien
 	log.Infof("contract domainSeperator hex: %s", hex.EncodeToString(contractDomainSeparatorHash[:]))
 	log.Infof("contract txInputHash hex: %s", hex.EncodeToString(contractInputHash[:]))
 	log.Infof("contract totalHash hex: %s", hex.EncodeToString(contractTotalHash[:]))
-	// total hash: 018005700fa569e71aff56924baced7c3877405e53719c8c9a597cd2384bf293
 
-	//totalHash := getTotalHashForMultisig(req, chainConfig.ChainID.Int64())
+	totalHash := getTotalHashForMultisig(req, chainID.Int64())
 	for i := 0; i < int(req.M); i++ {
-		v, r, s, err := createSig(req, sdk, i, contractTotalHash[:])
+		v, r, s, err := createSig(req, sdk, i, totalHash)
+		//v, r, s, err := createSig(req, sdk, i, contractTotalHash[:])
 		//v, r, s, err := createSig(req, sdk, i, totalHash)
 		if err != nil {
 			return nil, err
@@ -320,7 +319,7 @@ func BuildMultisigTx(req MultisigTxReq, sdk *kmssdk.SDK, client *ethclient.Clien
 	}
 
 	{ // [DEBUG] experiment with events
-		time.Sleep(time.Minute)
+		//time.Sleep(time.Minute)
 		latestBlock, err := client.BlockNumber(context.Background())
 		if err != nil {
 			latestBlock = 7880537
