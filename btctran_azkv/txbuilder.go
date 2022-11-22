@@ -49,18 +49,19 @@ func BuildTx(req *TxReq, sdk *kmssdk.SDK, networkParams *chaincfg.Params) (strin
 	req.FromAddrPubKey = fromAddrPubKey
 	req.FromAddr = fromAddr
 
-	// get to addresses
-	if req.IsToLegacy {
-		toAddrPubKey, toAddr, err = GetLegacyAddressPubKey(req.To, sdk, networkParams)
-	} else {
-		toAddrPubKey, toAddr, err = GetBech32AddressPublicKey(req.To, sdk, networkParams)
+	if req.ToAddr == "" {
+		// get to addresses
+		if req.IsToLegacy {
+			toAddrPubKey, toAddr, err = GetLegacyAddressPubKey(req.To, sdk, networkParams)
+		} else {
+			toAddrPubKey, toAddr, err = GetBech32AddressPublicKey(req.To, sdk, networkParams)
+		}
+		if err != nil {
+			return "", "", "", err
+		}
+		req.ToAddrPubKey = toAddrPubKey
+		req.ToAddr = toAddr
 	}
-	if err != nil {
-		return "", "", "", err
-	}
-	req.ToAddrPubKey = toAddrPubKey
-	req.ToAddr = toAddr
-
 	// new wired BTC tx
 	msgTx, err := NewTx()
 	if err != nil {
@@ -134,13 +135,14 @@ func BuildMultisigTx(req *MultisigTxReq, sdk *kmssdk.SDK, networkParams *chaincf
 	req.ScriptPubKey = scriptPubKey
 	req.FromAddr = fromAddr
 
-	toAddrPubKey, toAddr, err := GetBech32AddressPublicKey(req.To, sdk, networkParams)
-	if err != nil {
-		return "", "", "", err
+	if req.ToAddr == "" {
+		toAddrPubKey, toAddr, err := GetBech32AddressPublicKey(req.To, sdk, networkParams)
+		if err != nil {
+			return "", "", "", err
+		}
+		req.ToAddrPubKey = toAddrPubKey
+		req.ToAddr = toAddr
 	}
-	req.ToAddrPubKey = toAddrPubKey
-	req.ToAddr = toAddr
-
 	// new wired BTC tx
 	msgTx, err := NewTx()
 	if err != nil {
@@ -217,13 +219,14 @@ func BuildSegWitMultisigTx(req *MultisigTxReq, sdk *kmssdk.SDK, networkParams *c
 	req.ScriptPubKey = scriptPubKey
 	req.FromAddr = fromAddr
 
-	toAddrPubKey, toAddr, err := GetBech32AddressPublicKey(req.To, sdk, networkParams)
-	if err != nil {
-		return "", "", "", err
+	if req.ToAddr == "" {
+		toAddrPubKey, toAddr, err := GetBech32AddressPublicKey(req.To, sdk, networkParams)
+		if err != nil {
+			return "", "", "", err
+		}
+		req.ToAddrPubKey = toAddrPubKey
+		req.ToAddr = toAddr
 	}
-	req.ToAddrPubKey = toAddrPubKey
-	req.ToAddr = toAddr
-
 	// new wired BTC tx
 	msgTx, err := NewTx()
 	if err != nil {

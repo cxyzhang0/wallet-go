@@ -321,7 +321,7 @@ func EstimateFee(msgTx *wire.MsgTx, addr string, networkParams *chaincfg.Params)
 	case txscript.IsPayToWitnessScriptHash(scriptPubKey):
 		txSize = (42+272*inputCount+128*outputCount)/4 + 50 // TODO: 50 is arbitrary for P2WSH
 	case txscript.IsPayToScriptHash(scriptPubKey):
-		txSize = inputCount*180 + outputCount*34 + 10 + 150 // TODO: 150 is arbitrary for P2SH
+		txSize = inputCount*180 + outputCount*34 + 10 + 350 // TODO: 150 is arbitrary for P2SH
 	default:
 		txSize = inputCount*180 + outputCount*34 + 10
 	}

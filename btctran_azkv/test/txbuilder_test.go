@@ -36,6 +36,9 @@ func TestBuildTx(t *testing.T) {
 		Amount:       5000,
 	}
 
+	// To override recipient in req.To
+	//req.ToAddr = "2MtorgucUbH9jPXdet913qXwXJJUj4GEPt2"
+
 	signedTxReq, txHash, fromAddr, err := tran.BuildTx(&req, _sdk, networkParams)
 	if err != nil {
 		t.Logf("fromAddr: %s", fromAddr) // this is dummy just to avoid not used error on fromAddr
@@ -59,7 +62,7 @@ func TestBuildTx(t *testing.T) {
 		Event:         "tx-confirmation",
 		Address:       fromAddr,
 		Hash:          txHash,
-		Confirmations: 6,
+		Confirmations: 3,
 		URL:           tran.Conf.Blockcypher.WebhookURL,
 		//URL:           "https://eo87b9j94cnw82l.m.pipedream.net/",
 	})
@@ -135,6 +138,9 @@ func TestBuildMultisigTx(t *testing.T) {
 		Amount: 5000,
 	}
 
+	// To override recipient in req.To
+	req.ToAddr = "2MtorgucUbH9jPXdet913qXwXJJUj4GEPt2"
+
 	signedTxReq, txHash, fromAddr, err := tran.BuildMultisigTx(&req, _sdk, networkParams)
 	if err != nil {
 		t.Logf("fromAddr: %s", fromAddr) // this is dummy just to avoid not used error on fromAddr
@@ -158,7 +164,7 @@ func TestBuildMultisigTx(t *testing.T) {
 		Event:         "tx-confirmation",
 		Address:       fromAddr,
 		Hash:          txHash,
-		Confirmations: 6,
+		Confirmations: 3,
 		URL:           tran.Conf.Blockcypher.WebhookURL,
 		//URL:           "https://eo87b9j94cnw82l.m.pipedream.net/",
 	})
@@ -173,6 +179,7 @@ func TestBuildMultisigTx(t *testing.T) {
 /**
 P2WSH address for sender: 		tb1qg6qjqxy9nv90y2rd5vyp4cfrwevntffpkjs99g68a5gkzlhf23vsdruduz
 Bech32 address for recipient: 	tb1qcf3p6cdsjflzmcsc286mp4dyrktslv0n4crdyy
+Override with NYDIG P2SH recipient: 2MtorgucUbH9jPXdet913qXwXJJUj4GEPt2
 */
 func TestBuildSegWitMultisigTx(t *testing.T) {
 	keyLabel1 := kmssdk.KeyLabel{
@@ -216,6 +223,9 @@ func TestBuildSegWitMultisigTx(t *testing.T) {
 		Amount: 5000,
 	}
 
+	// To override recipient in req.To
+	req.ToAddr = "2MtorgucUbH9jPXdet913qXwXJJUj4GEPt2"
+
 	signedTxReq, txHash, fromAddr, err := tran.BuildSegWitMultisigTx(&req, _sdk, networkParams)
 	if err != nil {
 		t.Logf("fromAddr: %s", fromAddr) // this is dummy just to avoid not used error on fromAddr
@@ -248,4 +258,5 @@ func TestBuildSegWitMultisigTx(t *testing.T) {
 	}
 
 	t.Logf("webhook created for tx-confirmation: %+v", hook)
+
 }
