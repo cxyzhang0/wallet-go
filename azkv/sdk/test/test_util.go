@@ -7,6 +7,7 @@ import (
 	"github.com/Azure/go-autorest/autorest/azure"
 	kmssdk "github.com/cxyzhang0/wallet-go/azkv/sdk"
 	"os"
+	"testing"
 )
 
 // subscriptionId: dc934097-fb2c-4e79-ab45-4427a2363216
@@ -25,8 +26,10 @@ var (
 	clientSecret = "bcy8Q~N6aYbXRV7Yrf9Dyrvy.JXcJH7d57Y5Abm7"
 	tenantId     = "b0c970c0-191d-4289-9971-e961c7b6e8d2"
 	vaultName    = "szkv1"
-	vaultURI     string // https://szkv1.vault.azure.net/
-	_sdk         *kmssdk.SDK
+	keyName      = "secp256k1-soft-1"
+	//keyName      = "secp256k1-hsm-1"
+	vaultURI string // https://szkv1.vault.azure.net/
+	_sdk     *kmssdk.SDK
 )
 
 func init() {
@@ -53,4 +56,16 @@ func init() {
 	//client.Authorizer = authorizer
 
 	_sdk = kmssdk.NewSDK(client)
+}
+
+func FailOnErr(t *testing.T, e error, msg string) {
+	if e != nil {
+		t.Fatalf("Fatal on error, %s, %v", msg, e)
+	}
+}
+
+func FailOnFlag(t *testing.T, flag bool, params ...interface{}) {
+	if flag {
+		t.Fatalf("Fail on falg, %v", params)
+	}
 }

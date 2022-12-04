@@ -1,4 +1,4 @@
-package ethtran_azkv
+package avaxtran_azkv
 
 import (
 	"bytes"

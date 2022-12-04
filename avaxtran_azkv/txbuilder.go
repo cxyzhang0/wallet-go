@@ -1,9 +1,10 @@
-package ethtran_azkv
+package avaxtran_azkv
 
 import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	erc20 "github.com/cxyzhang0/wallet-go/avaxtran_azkv/contracts/ERC20"
 	kmssdk "github.com/cxyzhang0/wallet-go/azkv/sdk"
 	contract "github.com/cxyzhang0/wallet-go/ethtran_azkv/contract1"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -13,19 +14,24 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
 	log "github.com/sirupsen/logrus"
+	"math"
 	"math/big"
 	"sort"
 )
 
+// TODO: can we use bind.TransactOpts for most of the elements?
 type TxReq struct {
-	From      kmssdk.KeyLabel
-	To        kmssdk.KeyLabel
-	ToAddr    string
-	Amount    *big.Int
-	Nonce     uint64
+	From   kmssdk.KeyLabel
+	To     kmssdk.KeyLabel
+	ToAddr string
+	Amount *big.Int
+	Nonce  uint64
+	Gas    uint64
+	// dynamic tx
 	GasTipCap *big.Int
 	GasFeeCap *big.Int
-	Gas       uint64
+	// legacy tx
+	GasPrice *big.Int
 }
 
 // BuildTx builds a transfer transaction and returns a signed ethereum transaction request and its hash,
@@ -36,10 +42,10 @@ type TxReq struct {
 // the nonce and gas fees need not come from the caller of this func.
 // Also, the next iteration may not need chainConfig as a parameter - the caller just needs to pass in the
 // network (mainnet or one of the testnets) so the ubiquity call and this func are consistent re network.
-func BuildTx(req TxReq, sdk *kmssdk.SDK, chainConfig *params.ChainConfig) (string, string, error) { // signed raw tx, tx hash, error
+func BuildTx(req TxReq, sdk *kmssdk.SDK, chainConfig *params.ChainConfig) (*types.Transaction, string, string, error) { // signed raw tx, tx hash, error
 	fromAddrPubKey, _, err := GetAddressPubKey(req.From, sdk)
 	if err != nil {
-		return "", "", err
+		return nil, "", "", err
 	}
 
 	var toAddrPubKey *common.Address
@@ -54,48 +60,61 @@ func BuildTx(req TxReq, sdk *kmssdk.SDK, chainConfig *params.ChainConfig) (strin
 	} else {
 		addr, _, err := GetAddressPubKey(req.To, sdk)
 		if err != nil {
-			return "", "", err
+			return nil, "", "", err
 		}
 		toAddrPubKey = addr
 	}
 
 	var data []byte
 
-	tx := types.NewTx(&types.DynamicFeeTx{
-		Nonce:     req.Nonce,
-		GasTipCap: req.GasTipCap,
-		GasFeeCap: req.GasFeeCap,
-		Gas:       req.Gas,
-		To:        toAddrPubKey,
-		Value:     req.Amount,
-		Data:      data,
-	})
+	var tx *types.Transaction
 
-	signer := types.MakeSigner(chainConfig, chainConfig.LondonBlock)
+	if req.GasPrice != nil {
+		tx = types.NewTx(&types.LegacyTx{
+			Nonce:    req.Nonce,
+			GasPrice: req.GasPrice,
+			Gas:      req.Gas,
+			To:       toAddrPubKey,
+			Value:    req.Amount,
+			Data:     data,
+		})
+	} else {
+		tx = types.NewTx(&types.DynamicFeeTx{
+			Nonce:     req.Nonce,
+			GasTipCap: req.GasTipCap,
+			GasFeeCap: req.GasFeeCap,
+			Gas:       req.Gas,
+			To:        toAddrPubKey,
+			Value:     req.Amount,
+			Data:      data,
+		})
+	}
+
+	signer := types.MakeSigner(chainConfig, chainConfig.LondonBlock) // TODO: Does Avax use LondonBlock?
 
 	txHash := signer.Hash(tx)
 
 	signature, err := sdk.GetChainSignature(req.From, txHash.Bytes())
 	if err != nil {
-		return "", "", err
+		return nil, "", "", err
 	}
 
 	sig, err := GetCompleteSignature(signature, txHash[:], fromAddrPubKey)
 	if err != nil {
-		return "", "", err
+		return nil, "", "", err
 	}
 
 	signedTx, err := tx.WithSignature(signer, sig)
 	if err != nil {
-		return "", "", err
+		return nil, "", "", err
 	}
 
 	raw, err := signedTx.MarshalBinary()
 	//raw, err := rlp.EncodeToBytes(signedTx)
 	if err != nil {
-		return "", "", fmt.Errorf("unable to encode signed tx to bytes %+v", err)
+		return nil, "", "", fmt.Errorf("unable to encode signed tx to bytes %+v", err)
 	}
-	return hexutil.Encode(raw), fmt.Sprintf("0x%x", signedTx.Hash().Bytes()), nil
+	return signedTx, hexutil.Encode(raw), fmt.Sprintf("0x%x", signedTx.Hash().Bytes()), nil
 
 	//return GetSignedTx(signature, tx, signer, txHash, fromAddrPubKey)
 
@@ -407,4 +426,167 @@ func NewKeyedTransactorWithChainID(fromKeyLabel kmssdk.KeyLabel, sdk *kmssdk.SDK
 		},
 		Context: context.Background(),
 	}, nil
+}
+
+type ERC20DeployTxReq struct {
+	From        kmssdk.KeyLabel // deploy from
+	FromAddress *common.Address
+	Nonce       uint64
+	GasLimit    uint64
+	GasPrice    *big.Int
+}
+
+func BuildDeployERC20ContractTx(req ERC20DeployTxReq, sdk *kmssdk.SDK, client *ethclient.Client, chainID *big.Int) (common.Address, *types.Transaction, *erc20.Erc20, error) {
+	nilAddress := common.Address{}
+	//fromAddrPubKey := req.FromAddress
+
+	auth, err := NewKeyedTransactorWithChainID(req.From, sdk /*fromAddrPubKey,*/, chainID)
+	if err != nil {
+		return nilAddress, nil, nil, err
+	}
+
+	auth.Nonce = big.NewInt(int64(req.Nonce))
+	auth.Value = big.NewInt(0) // 0 for deploy contract tx
+	auth.GasLimit = req.GasLimit
+	auth.GasPrice = req.GasPrice
+
+	return erc20.DeployErc20(auth, client)
+}
+
+type ERC20TxReq struct {
+	ContractAddress *common.Address
+	Executor        kmssdk.KeyLabel
+	ExecutorAddress *common.Address
+	To              *kmssdk.KeyLabel
+	ToAddress       *common.Address
+	ExecutorNonce   uint64
+	Amount          *big.Int
+	GasLimit        uint64
+	GasPrice        *big.Int
+	Data            []byte
+}
+
+func TotalSupply(req ERC20TxReq, client *ethclient.Client) (float64, error) {
+	instance, err := erc20.NewErc20(*req.ContractAddress, client)
+	if err != nil {
+		return 0, err
+	}
+
+	callOpts := bind.CallOpts{
+		Pending: false,
+		From:    *req.ExecutorAddress,
+		Context: context.Background(),
+	}
+
+	decimals, err := instance.Decimals(&callOpts)
+	if err != nil {
+		return 0, err
+	}
+
+	totalSupply, err := instance.TotalSupply(&callOpts)
+	if err != nil {
+		return 0, err
+	}
+
+	total := float64(totalSupply.Int64()) / math.Pow(10, float64(decimals))
+	return total, nil
+}
+
+func BalanceOf(req ERC20TxReq, client *ethclient.Client) (float64, error) {
+	instance, err := erc20.NewErc20(*req.ContractAddress, client)
+	if err != nil {
+		return 0, err
+	}
+
+	callOpts := bind.CallOpts{
+		Pending: false,
+		From:    *req.ExecutorAddress,
+		Context: context.Background(),
+	}
+	decimals, err := instance.Decimals(&callOpts)
+	if err != nil {
+		return 0, err
+	}
+
+	balance, err := instance.BalanceOf(&callOpts, *req.ExecutorAddress)
+	if err != nil {
+		return 0, err
+	}
+
+	bal := float64(balance.Int64()) / math.Pow(10, float64(decimals))
+
+	return bal, nil
+}
+
+func BuildMintTx(req ERC20TxReq, sdk *kmssdk.SDK, client *ethclient.Client, chainID *big.Int) (*types.Transaction, error) {
+	auth, err := NewKeyedTransactorWithChainID(req.Executor, sdk, chainID)
+	if err != nil {
+		return nil, err
+	}
+
+	auth.Nonce = big.NewInt(int64(req.ExecutorNonce))
+	//auth.Value = req.Amount // NOTE: don't set value
+	auth.GasLimit = req.GasLimit
+	auth.GasPrice = req.GasPrice
+
+	instance, err := erc20.NewErc20(*req.ContractAddress, client)
+	if err != nil {
+		return nil, err
+	}
+
+	signedTx, err := instance.Mint(auth, *req.ToAddress, req.Amount)
+	if err != nil {
+		return nil, err
+	}
+
+	return signedTx, nil
+
+}
+
+func BuildTransferTx(req ERC20TxReq, sdk *kmssdk.SDK, client *ethclient.Client, chainID *big.Int) (*types.Transaction, error) {
+	auth, err := NewKeyedTransactorWithChainID(req.Executor, sdk, chainID)
+	if err != nil {
+		return nil, err
+	}
+
+	auth.Nonce = big.NewInt(int64(req.ExecutorNonce))
+	//auth.Value = req.Amount // NOTE: don't set value
+	auth.GasLimit = req.GasLimit
+	auth.GasPrice = req.GasPrice
+
+	instance, err := erc20.NewErc20(*req.ContractAddress, client)
+	if err != nil {
+		return nil, err
+	}
+
+	signedTx, err := instance.Transfer(auth, *req.ToAddress, req.Amount)
+	if err != nil {
+		return nil, err
+	}
+
+	return signedTx, nil
+}
+
+func BuildBurnTx(req ERC20TxReq, sdk *kmssdk.SDK, client *ethclient.Client, chainID *big.Int) (*types.Transaction, error) {
+	auth, err := NewKeyedTransactorWithChainID(req.Executor, sdk, chainID)
+	if err != nil {
+		return nil, err
+	}
+
+	auth.Nonce = big.NewInt(int64(req.ExecutorNonce))
+	//auth.Value = req.Amount // NOTE: don't set value
+	auth.GasLimit = req.GasLimit
+	auth.GasPrice = req.GasPrice
+
+	instance, err := erc20.NewErc20(*req.ContractAddress, client)
+	if err != nil {
+		return nil, err
+	}
+
+	signedTx, err := instance.Burn(auth, req.Amount)
+	if err != nil {
+		return nil, err
+	}
+
+	return signedTx, nil
 }
