@@ -23,7 +23,7 @@ contract address: 0x0079d779C4736b190E6568818659e4B23DE11D9c
 */
 func TestBuildDeployERC20Contract(t *testing.T) {
 	from := kmssdk.KeyLabel{
-		Key:       keyName,
+		Key:       softKeyName,
 		Version:   "0eab9a0cc2e84018be05f90e5d914142",
 		Algorithm: kmssdk.Secp256k1,
 	}
@@ -70,7 +70,7 @@ func TestTotalSupply(t *testing.T) {
 	//contractAddress := common.HexToAddress("0xdbb353c5D6c3F7987b98B6aaFFeE129fA0b542E0")
 
 	executor := kmssdk.KeyLabel{
-		Key:     keyName,
+		Key:     softKeyName,
 		Version: "0eab9a0cc2e84018be05f90e5d914142",
 		//Version: "0ff7adfdbe0a4b69881c4dac6b0f81f4",
 		//Version:   "485248105ef047aaa1f33cf0baaf9a03",
@@ -109,7 +109,7 @@ func TestBalanceOf(t *testing.T) {
 	//contractAddress := common.HexToAddress("0xdbb353c5D6c3F7987b98B6aaFFeE129fA0b542E0")
 
 	executor := kmssdk.KeyLabel{
-		Key: keyName,
+		Key: softKeyName,
 		//Version: "0eab9a0cc2e84018be05f90e5d914142",
 		//Version: "0ff7adfdbe0a4b69881c4dac6b0f81f4",
 		Version:   "485248105ef047aaa1f33cf0baaf9a03",
@@ -147,7 +147,7 @@ func TestMint(t *testing.T) {
 	//contractAddress := common.HexToAddress("0xdbb353c5D6c3F7987b98B6aaFFeE129fA0b542E0")
 
 	executor := kmssdk.KeyLabel{
-		Key:       keyName,
+		Key:       softKeyName,
 		Version:   "0eab9a0cc2e84018be05f90e5d914142",
 		Algorithm: kmssdk.Secp256k1,
 	}
@@ -165,12 +165,21 @@ func TestMint(t *testing.T) {
 	FailOnErr(t, err, "FonGetAddressPubKey")
 
 	to := kmssdk.KeyLabel{
-		Key:     "secp256k1-hsm-1",
-		Version: "cb848fb15e3a40b49bc41cbe957ea438",
-		//Version: "0179a6204ed7491ea5b27a87b541d5cb",
-		//Version:   "b6aec266b6a147f7a1c40fe842504650",
+		Key: softKeyName,
+		//Version: "0eab9a0cc2e84018be05f90e5d914142",
+		Version: "0ff7adfdbe0a4b69881c4dac6b0f81f4",
+		//Version:   "485248105ef047aaa1f33cf0baaf9a03",
 		Algorithm: kmssdk.Secp256k1,
 	}
+	/*
+		to := kmssdk.KeyLabel{
+			Key:     "secp256k1-hsm-1",
+			Version: "cb848fb15e3a40b49bc41cbe957ea438",
+			//Version: "0179a6204ed7491ea5b27a87b541d5cb",
+			//Version:   "b6aec266b6a147f7a1c40fe842504650",
+			Algorithm: kmssdk.Secp256k1,
+		}
+	*/
 	toAddress, _, err := tran.GetAddressPubKey(to, _sdk)
 
 	req := tran.ERC20TxReq{
@@ -179,8 +188,8 @@ func TestMint(t *testing.T) {
 		ExecutorAddress: executorAddress,
 		To:              &to,
 		ToAddress:       toAddress,
-		Amount:          big.NewInt(1000e2), // USD pennies
-		GasLimit:        1500000,            // TODO: how to calc it?
+		Amount:          big.NewInt(100e2), // USD pennies
+		GasLimit:        1500000,           // TODO: how to calc it?
 		Data:            []byte(""),
 	}
 
@@ -210,10 +219,10 @@ func TestTransfer(t *testing.T) {
 	//contractAddress := common.HexToAddress("0xdbb353c5D6c3F7987b98B6aaFFeE129fA0b542E0")
 
 	executor := kmssdk.KeyLabel{
-		Key: keyName,
+		Key: softKeyName,
 		//Version: "0eab9a0cc2e84018be05f90e5d914142",
-		Version: "0ff7adfdbe0a4b69881c4dac6b0f81f4",
-		//Version:   "485248105ef047aaa1f33cf0baaf9a03",
+		//Version: "0ff7adfdbe0a4b69881c4dac6b0f81f4",
+		Version:   "485248105ef047aaa1f33cf0baaf9a03",
 		Algorithm: kmssdk.Secp256k1,
 	}
 
@@ -230,10 +239,10 @@ func TestTransfer(t *testing.T) {
 	FailOnErr(t, err, "FonGetAddressPubKey")
 
 	to := kmssdk.KeyLabel{
-		Key: keyName,
+		Key: softKeyName,
 		//Version: "0eab9a0cc2e84018be05f90e5d914142",
-		Version: "0ff7adfdbe0a4b69881c4dac6b0f81f4",
-		//Version:   "485248105ef047aaa1f33cf0baaf9a03",
+		//Version: "0ff7adfdbe0a4b69881c4dac6b0f81f4",
+		Version:   "485248105ef047aaa1f33cf0baaf9a03",
 		Algorithm: kmssdk.Secp256k1,
 	}
 	/*
@@ -283,7 +292,7 @@ func TestBurn(t *testing.T) {
 	contractAddress := common.HexToAddress("0xED1dDBcF4246688A82F7da8Ea5015f76c4D13CB4")
 
 	executor := kmssdk.KeyLabel{
-		Key: keyName,
+		Key: softKeyName,
 		//Version: "0eab9a0cc2e84018be05f90e5d914142",
 		Version: "0ff7adfdbe0a4b69881c4dac6b0f81f4",
 		//Version:   "485248105ef047aaa1f33cf0baaf9a03",

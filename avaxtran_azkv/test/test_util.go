@@ -20,7 +20,8 @@ var (
 	clientSecret = "bcy8Q~N6aYbXRV7Yrf9Dyrvy.JXcJH7d57Y5Abm7"
 	tenantId     = "b0c970c0-191d-4289-9971-e961c7b6e8d2"
 	vaultName    = "szkv1"
-	keyName      = "secp256k1-soft-1"
+	softKeyName  = "secp256k1-soft-1"
+	hsmKeyName   = "secp256k1-hsm-1"
 	vaultURI     string // https://szkv1.vault.azure.net/
 	_sdk         *kmssdk.SDK
 

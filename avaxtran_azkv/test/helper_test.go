@@ -18,7 +18,7 @@ address3: 0x6c0a79d56c9C861Dc8907469728e6Bcc4aEe5fbB
 */
 func TestGetAddressPubKey(t *testing.T) {
 	keyLabel := kmssdk.KeyLabel{
-		Key:     keyName,
+		Key:     softKeyName,
 		Version: "0eab9a0cc2e84018be05f90e5d914142",
 		//Version: "0ff7adfdbe0a4b69881c4dac6b0f81f4",
 		//Version:   "485248105ef047aaa1f33cf0baaf9a03",

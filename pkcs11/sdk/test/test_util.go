@@ -5,6 +5,7 @@ import (
 	"github.com/cxyzhang0/wallet-go/pkcs11/sdk"
 	p11 "github.com/miekg/pkcs11"
 	"os"
+	"testing"
 )
 
 var (
@@ -64,4 +65,16 @@ func getNewSDK() *sdk.SDK {
 		panic(err)
 	}
 	return s
+}
+
+func FailOnErr(t *testing.T, e error, msg string) {
+	if e != nil {
+		t.Fatalf("Fatal on error, %s, %v", msg, e)
+	}
+}
+
+func FailOnFlag(t *testing.T, flag bool, params ...interface{}) {
+	if flag {
+		t.Fatalf("Fail on falg, %v", params)
+	}
 }

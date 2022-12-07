@@ -12,15 +12,25 @@ func TestGenerateKeyPair(t *testing.T) {
 	keyLabel := sdk.KeyLabel{
 		pf,
 		"WIM-test",
-		"secp256k1-hsm-1",
-		5,
-		sdk.Secp256k1,
+		"ed25519-hsm-1",
+		1,
+		sdk.Ed25519,
 	}
+	/*
+		keyLabel := sdk.KeyLabel{
+			pf,
+			"WIM-test",
+			"secp256k1-hsm-1",
+			5,
+			sdk.Secp256k1,
+		}
+	*/
 	persistent := false
 	pbk, prvk, err := _sdk.GenerateKeyPair(keyLabel, persistent)
-	if err != nil {
-		t.Fatalf("failed to generate key pair - curve: %s; keyLabel string: %s; persistent: %v: %+v", keyLabel.Algorithm.String(), keyLabel.ShortLabel(), persistent, err)
-	}
+	FailOnErr(t, err, "FonGenerateKeyPair")
+	//if err != nil {
+	//	t.Fatalf("failed to generate key pair - curve: %s; keyLabel string: %s; persistent: %v: %+v", keyLabel.Algorithm.String(), keyLabel.ShortLabel(), persistent, err)
+	//}
 
 	t.Logf("generated key pair - pbk: %d; prvk: %d; curve: %s; keyLabel string: %s; persistent: %v", pbk, prvk, keyLabel.Algorithm.String(), keyLabel.ShortLabel(), persistent)
 }

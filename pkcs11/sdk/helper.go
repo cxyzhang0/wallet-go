@@ -18,6 +18,7 @@ sha256 is our constant digest function. So we don't name it in the enum.
 */
 const ( // enum
 	Secp256k1 CryptographAlgorithm = iota
+	Ed25519
 	Secp256r1
 	RSA2048
 )
@@ -26,6 +27,8 @@ func (c CryptographAlgorithm) String() string {
 	switch c {
 	case Secp256k1:
 		return "Secp256k1"
+	case Ed25519:
+		return "Ed25519"
 	case Secp256r1:
 		return "Secp256r1"
 	case RSA2048:

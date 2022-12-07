@@ -24,6 +24,19 @@ var SupportedAlgorithms map[CryptographAlgorithm][][]*p11.Attribute = map[Crypto
 			p11.NewAttribute(p11.CKA_EXTRACTABLE, true),
 		},
 	},
+	Ed25519: {
+		{
+			p11.NewAttribute(p11.CKA_EC_PARAMS, []byte{
+				0x06, 0x09, 0x2B, 0x06, 0x01, 0x04, 0x01, 0xDA, 0x47, 0x0F, 0x01,
+			}), // OID 1.3.6.1.4.1.11591.15.1 for Ed25519
+			p11.NewAttribute(p11.CKA_VERIFY, true),
+		},
+		{
+			p11.NewAttribute(p11.CKA_SIGN, true),
+			p11.NewAttribute(p11.CKA_SENSITIVE, true),
+			p11.NewAttribute(p11.CKA_EXTRACTABLE, true),
+		},
+	},
 	Secp256r1: {
 		{
 			p11.NewAttribute(p11.CKA_EC_PARAMS, []byte{
@@ -86,6 +99,18 @@ func NewSDK(lib, slotLabel, pin string) (*SDK, error) {
 			p11.NewAttribute(p11.CKA_EC_PARAMS, []byte{
 				0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x0A,
 			}), // OID 1.3.132.0.10 Secp256k1
+			p11.NewAttribute(p11.CKA_VERIFY, true),
+		},
+			{
+				p11.NewAttribute(p11.CKA_SIGN, true),
+				p11.NewAttribute(p11.CKA_SENSITIVE, true),
+				p11.NewAttribute(p11.CKA_EXTRACTABLE, true),
+			},
+		},
+		Ed25519: {{
+			p11.NewAttribute(p11.CKA_EC_PARAMS, []byte{
+				0x06, 0x09, 0x2B, 0x06, 0x01, 0x04, 0x01, 0xDA, 0x47, 0x0F, 0x01,
+			}), // OID 1.3.6.1.4.1.11591.15.1 for Ed25519
 			p11.NewAttribute(p11.CKA_VERIFY, true),
 		},
 			{
@@ -165,6 +190,8 @@ func (s *SDK) GenerateKeyPair(keyLabel KeyLabel, tokenPersistent bool) (p11.Obje
 	switch keyLabel.Algorithm {
 	case RSA2048:
 		keyGenMechanism = []*p11.Mechanism{p11.NewMechanism(p11.CKM_RSA_PKCS_KEY_PAIR_GEN, nil)}
+	case Ed25519:
+		//keyGenMechanism = []*p11.Mechanism{p11.NewMechanism(p11.CKM_EC_EDWARDS_KEY_PAIR_GEN, nil)}
 	default:
 		keyGenMechanism = []*p11.Mechanism{p11.NewMechanism(p11.CKM_EC_KEY_PAIR_GEN, nil)}
 	}
