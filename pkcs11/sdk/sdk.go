@@ -2,10 +2,13 @@ package sdk
 
 import (
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
+	"encoding/asn1"
 	"fmt"
 	"github.com/btcsuite/btcd/btcec"
 	p11 "github.com/miekg/pkcs11"
+	"github.com/pkg/errors"
 	"math/big"
 	"runtime"
 )
@@ -27,8 +30,10 @@ var SupportedAlgorithms map[CryptographAlgorithm][][]*p11.Attribute = map[Crypto
 	Ed25519: {
 		{
 			p11.NewAttribute(p11.CKA_EC_PARAMS, []byte{
-				0x06, 0x09, 0x2B, 0x06, 0x01, 0x04, 0x01, 0xDA, 0x47, 0x0F, 0x01,
-			}), // OID 1.3.6.1.4.1.11591.15.1 for Ed25519
+				0x06, 0x03, 0x2B, 0x65, 0x70, // from oid 1.3.101.112 for id-Ed25519
+				//0x13, 0x0c, 0x65, 0x64, 0x77, 0x61, 0x72, 0x64, 0x73, 0x32, 0x35, 0x35, 0x31, 0x39, // is it for Edwards25519? https://stackoverflow.com/questions/70740280/how-to-export-ed25519-public-key-from-pkcs11-attribute
+				//0x06, 0x09, 0x2B, 0x06, 0x01, 0x04, 0x01, 0xDA, 0x47, 0x0F, 0x01, // did not work: from oid 1.3.6.1.4.1.11591.15.1 for ed25519
+			}),
 			p11.NewAttribute(p11.CKA_VERIFY, true),
 		},
 		{
@@ -94,57 +99,6 @@ func NewSDK(lib, slotLabel, pin string) (*SDK, error) {
 		return nil, e
 	}
 
-	var _ = /*curvesMap*/ map[CryptographAlgorithm][][]*p11.Attribute{ // curve to [publicKeyTemplate, privateKeyTemplate]
-		Secp256k1: {{
-			p11.NewAttribute(p11.CKA_EC_PARAMS, []byte{
-				0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x0A,
-			}), // OID 1.3.132.0.10 Secp256k1
-			p11.NewAttribute(p11.CKA_VERIFY, true),
-		},
-			{
-				p11.NewAttribute(p11.CKA_SIGN, true),
-				p11.NewAttribute(p11.CKA_SENSITIVE, true),
-				p11.NewAttribute(p11.CKA_EXTRACTABLE, true),
-			},
-		},
-		Ed25519: {{
-			p11.NewAttribute(p11.CKA_EC_PARAMS, []byte{
-				0x06, 0x09, 0x2B, 0x06, 0x01, 0x04, 0x01, 0xDA, 0x47, 0x0F, 0x01,
-			}), // OID 1.3.6.1.4.1.11591.15.1 for Ed25519
-			p11.NewAttribute(p11.CKA_VERIFY, true),
-		},
-			{
-				p11.NewAttribute(p11.CKA_SIGN, true),
-				p11.NewAttribute(p11.CKA_SENSITIVE, true),
-				p11.NewAttribute(p11.CKA_EXTRACTABLE, true),
-			},
-		},
-		Secp256r1: {{
-			p11.NewAttribute(p11.CKA_EC_PARAMS, []byte{
-				0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07,
-			}), // OID 1.2.840.10045.3.1.7 Secp256r1/v1, etc
-			p11.NewAttribute(p11.CKA_VERIFY, true),
-		},
-			{
-				p11.NewAttribute(p11.CKA_SIGN, true),
-				p11.NewAttribute(p11.CKA_SENSITIVE, true),
-				p11.NewAttribute(p11.CKA_EXTRACTABLE, true),
-			},
-		},
-		RSA2048: {{
-			p11.NewAttribute(p11.CKA_CLASS, p11.CKO_PUBLIC_KEY),
-			p11.NewAttribute(p11.CKA_KEY_TYPE, p11.CKK_RSA),
-			p11.NewAttribute(p11.CKA_PUBLIC_EXPONENT, []byte{1, 0, 1}),
-			p11.NewAttribute(p11.CKA_MODULUS_BITS, 2048),
-		},
-			{
-				p11.NewAttribute(p11.CKA_SIGN, true),
-				p11.NewAttribute(p11.CKA_SENSITIVE, true),
-				p11.NewAttribute(p11.CKA_EXTRACTABLE, true),
-			}},
-	}
-	//supportedCurves1 = make(map[string][][]*p11.Attribute, 3)
-
 	s := &SDK{
 		P:       p,
 		Session: session,
@@ -191,7 +145,7 @@ func (s *SDK) GenerateKeyPair(keyLabel KeyLabel, tokenPersistent bool) (p11.Obje
 	case RSA2048:
 		keyGenMechanism = []*p11.Mechanism{p11.NewMechanism(p11.CKM_RSA_PKCS_KEY_PAIR_GEN, nil)}
 	case Ed25519:
-		//keyGenMechanism = []*p11.Mechanism{p11.NewMechanism(p11.CKM_EC_EDWARDS_KEY_PAIR_GEN, nil)}
+		keyGenMechanism = []*p11.Mechanism{p11.NewMechanism(p11.CKM_EC_EDWARDS_KEY_PAIR_GEN, nil)}
 	default:
 		keyGenMechanism = []*p11.Mechanism{p11.NewMechanism(p11.CKM_EC_KEY_PAIR_GEN, nil)}
 	}
@@ -215,6 +169,10 @@ func (s *SDK) Sign(keyLabel KeyLabel, input []byte) ([]byte, error) {
 	case RSA2048:
 		mechanism = []*p11.Mechanism{
 			p11.NewMechanism(p11.CKM_RSA_PKCS, nil),
+		}
+	case Ed25519:
+		mechanism = []*p11.Mechanism{
+			p11.NewMechanism(p11.CKM_EDDSA, nil),
 		}
 	default:
 		mechanism = []*p11.Mechanism{
@@ -251,6 +209,10 @@ func (s *SDK) VerifySig(keyLabel KeyLabel, input []byte, sig []byte) error {
 	case RSA2048:
 		mechanism = []*p11.Mechanism{
 			p11.NewMechanism(p11.CKM_RSA_PKCS, nil),
+		}
+	case Ed25519:
+		mechanism = []*p11.Mechanism{
+			p11.NewMechanism(p11.CKM_EDDSA, nil),
 		}
 	default:
 		mechanism = []*p11.Mechanism{
@@ -430,8 +392,10 @@ func (s *SDK) GetECDSAPublicKey(keyLabel KeyLabel) (*ecdsa.PublicKey, error) {
 		curve = btcec.S256()
 	case Secp256r1:
 		curve = elliptic.P256()
+	case Ed25519:
+		return nil, fmt.Errorf("ed25519 is not supported")
 	case RSA2048:
-		return nil, fmt.Errorf("only support EC")
+		return nil, fmt.Errorf("RSA is not supported")
 	}
 
 	ecPoint, err := s.GetPublicKeyECPoint(keyLabel)
@@ -439,19 +403,59 @@ func (s *SDK) GetECDSAPublicKey(keyLabel KeyLabel) (*ecdsa.PublicKey, error) {
 		return nil, err
 	}
 
-	if len(ecPoint.Value) != 67 {
-		return nil, fmt.Errorf("ecPoint length expected 67, got %d", len(ecPoint.Value))
+	var pointBytes []byte
+	extra, err := asn1.Unmarshal(ecPoint.Value, &pointBytes) // ecPoint.Value is 67 bytes
+	if err != nil {
+		return nil, errors.WithMessage(err, "ec point is invalid ASN.1")
 	}
+	if len(extra) > 0 {
+		// We weren't expecting extra data
+		return nil, errors.New("unexpected data found when parsing elliptic curve point")
+	}
+
+	x, y := elliptic.Unmarshal(curve, pointBytes)
+
 	pubKey := ecdsa.PublicKey{
 		Curve: curve,
-		X:     &big.Int{},
-		Y:     &big.Int{},
+		X:     x,
+		Y:     y,
 	}
-	xBytes := ecPoint.Value[3:35] //the point array has 67 bytes, ignore the first 3
-	yBytes := ecPoint.Value[35:]
+	/*
+		pubKey := ecdsa.PublicKey{
+			Curve: curve,
+			X:     &big.Int{},
+			Y:     &big.Int{},
+		}
+		xBytes := ecPoint.Value[3:35] //the point array has 67 bytes, ignore the first 3
+		yBytes := ecPoint.Value[35:]
 
-	pubKey.X = new(big.Int).SetBytes(xBytes)
-	pubKey.Y = new(big.Int).SetBytes(yBytes)
+		pubKey.X = new(big.Int).SetBytes(xBytes)
+		pubKey.Y = new(big.Int).SetBytes(yBytes)
+	*/
+	return &pubKey, nil
+}
+
+func (s *SDK) GetEdDSAPublicKey(keyLabel KeyLabel) (*ed25519.PublicKey, error) {
+	if keyLabel.Algorithm != Ed25519 {
+		return nil, fmt.Errorf("on Ed25519 is supported")
+	}
+
+	ecPoint, err := s.GetPublicKeyECPoint(keyLabel)
+	if err != nil {
+		return nil, err
+	}
+
+	var pointBytes []byte
+	extra, err := asn1.Unmarshal(ecPoint.Value, &pointBytes) // ecPoint.Value is 34 bytes
+	if err != nil {
+		return nil, errors.WithMessage(err, "ec point is invalid ASN.1")
+	}
+	if len(extra) > 0 {
+		// We weren't expecting extra data
+		return nil, errors.New("unexpected data found when parsing elliptic curve point")
+	}
+
+	pubKey := ed25519.PublicKey(pointBytes) // pointBytes is 32 bytes
 
 	return &pubKey, nil
 }

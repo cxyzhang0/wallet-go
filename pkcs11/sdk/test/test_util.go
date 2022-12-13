@@ -9,10 +9,10 @@ import (
 )
 
 var (
-	//module          = "/Users/johnz/futurex/wf_pkcs11_mac/libfxpkcs11-debug.dylib"
-	//tokenLabel      = "us01hsm01test.virtucrypt.com:592"
+	//module     = "/Users/johnz/futurex/wf_pkcs11_mac/libfxpkcs11-debug.dylib"
+	//tokenLabel = "us01hsm01test.virtucrypt.com:592"
 	////privateKeyLabel = "projects/quantum-pilot-360000/locations/us-west1/keyRings/WIM-test/cryptoKeys/secp256k1-hsm-1/cryptoKeyVersions/1"
-	//pin             = "safest"
+	//pin = "safest"
 	module     = "/usr/local/lib/softhsm/libsofthsm2.so"
 	tokenLabel = "Slot Token 0"
 	////privateKeyLabel = "projects/quantum-pilot-360000/locations/us-west1/keyRings/WIM-test/cryptoKeys/secp256k1-hsm-1/cryptoKeyVersions/1"
@@ -69,7 +69,7 @@ func getNewSDK() *sdk.SDK {
 
 func FailOnErr(t *testing.T, e error, msg string) {
 	if e != nil {
-		t.Fatalf("Fatal on error, %s, %v", msg, e)
+		t.Fatalf("Fatal on error, %s, %+v", msg, e)
 	}
 }
 
