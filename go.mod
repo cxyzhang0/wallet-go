@@ -14,7 +14,7 @@ require (
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1
 	github.com/cosmos/cosmos-sdk v0.46.7
-	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0 // indirect
+	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0
 	github.com/ethereum/go-ethereum v1.10.25
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/googleapis/gax-go/v2 v2.4.0
@@ -53,7 +53,6 @@ require (
 	github.com/go-logfmt/logfmt v0.5.1 // indirect
 	github.com/go-ole/go-ole v1.2.1 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
-	//github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt v3.2.1+incompatible // indirect
 	github.com/golang-jwt/jwt/v4 v4.4.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
@@ -86,7 +85,6 @@ require (
 require (
 	//github.com/btcsuite/btcd v0.22.1
 	//github.com/btcsuite/btcd/btcutil v1.1.2 // indirect
-	//github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1 // indirect
 	github.com/btcsuite/btclog v0.0.0-20170628155309-84c8d2346e9f
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/golang/protobuf v1.5.2 // indirect
@@ -98,11 +96,16 @@ require (
 
 )
 
-require github.com/btcsuite/btcd v0.22.1
+require (
+	github.com/btcsuite/btcd v0.22.1
+	github.com/stretchr/testify v1.8.1
+)
 
 require (
 	github.com/99designs/go-keychain v0.0.0-20160105221929-9cf53c87839c // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/tendermint/go-amino v0.16.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
 replace (

@@ -2,11 +2,13 @@ package test
 
 import (
 	kmssdk "github.com/cxyzhang0/wallet-go/azkv/sdk"
+	"github.com/stretchr/testify/require"
 	"github.com/tendermint/tendermint/crypto"
 	"testing"
 )
 
-/**
+/*
+*
 key: secp256k1-soft-1 versions
 0eab9a0cc2e84018be05f90e5d914142
 0ff7adfdbe0a4b69881c4dac6b0f81f4
@@ -101,7 +103,8 @@ func TestSignAndVerifySig(t *testing.T) {
 	verifyResp, err := _sdk.VerifySig(keyLabel, hash, sigResp.KeyOperationResult.Result)
 	FailOnErr(t, err, "FonVerifySig")
 
-	t.Logf("verified: %t", *verifyResp.Value)
+	require.True(t, *verifyResp.Value)
+	//t.Logf("verified: %t", *verifyResp.Value)
 }
 
 func TestSignAndVerifySig_negative(t *testing.T) {
@@ -125,7 +128,8 @@ func TestSignAndVerifySig_negative(t *testing.T) {
 	verifyResp, err := _sdk.VerifySig(keyLabel, hash1, sigResp.KeyOperationResult.Result)
 	FailOnErr(t, err, "FonVerifySig")
 
-	t.Logf("verified: %t", *verifyResp.Value)
+	require.False(t, *verifyResp.Value)
+	//t.Logf("verified: %t", *verifyResp.Value)
 }
 
 func TestCosmosSignAndVerifySig(t *testing.T) {
@@ -142,7 +146,7 @@ func TestCosmosSignAndVerifySig(t *testing.T) {
 	//hash, err := kmssdk.SecureHashByteArray(msg)
 	//FailOnErr(t, err, "FonSecureHash")
 	hash := crypto.Sha256(msg)
-	t.Logf("hash: %v", hash)
+	//t.Logf("hash: %v", hash)
 
 	sigResp, err := _sdk.Sign(keyLabel, hash)
 	FailOnErr(t, err, "FonSign")
@@ -152,7 +156,8 @@ func TestCosmosSignAndVerifySig(t *testing.T) {
 
 	verified := pubKey.VerifySignature(msg, sigResp.Result)
 
-	t.Logf("verified: %t", verified)
+	require.True(t, verified)
+	//t.Logf("verified: %t", verified)
 }
 
 func TestGetChainSignature(t *testing.T) {
