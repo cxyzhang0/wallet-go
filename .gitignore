@@ -8,6 +8,6 @@ config.yml
 
 .idea/
 
-pkcs11/sdk/test/test_data/
+pkcs11/sdk/test/test_data-old/
 
 azkv/sdk/azureauth.json

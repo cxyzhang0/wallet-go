@@ -9,14 +9,20 @@ import (
 )
 
 var (
+	//// FX HSM
+	module     = "/Users/johnz/futurex/wf_pkcs11_mac_447/libfxpkcs11-debug.dylib"
+	tokenLabel = "us01crypto01test.virtucrypt.com:"
 	//module     = "/Users/johnz/futurex/wf_pkcs11_mac/libfxpkcs11-debug.dylib"
 	//tokenLabel = "us01hsm01test.virtucrypt.com:592"
+	pin = "safest"
 	////privateKeyLabel = "projects/quantum-pilot-360000/locations/us-west1/keyRings/WIM-test/cryptoKeys/secp256k1-hsm-1/cryptoKeyVersions/1"
-	//pin = "safest"
-	module     = "/usr/local/lib/softhsm/libsofthsm2.so"
-	tokenLabel = "Slot Token 0"
+
+	//// softhsm
+	//module     = "/usr/local/lib/softhsm/libsofthsm2.so"
+	//tokenLabel = "Slot Token 0"
+	//pin        = "5678"
 	////privateKeyLabel = "projects/quantum-pilot-360000/locations/us-west1/keyRings/WIM-test/cryptoKeys/secp256k1-hsm-1/cryptoKeyVersions/1"
-	pin  = "5678"
+
 	_sdk *sdk.SDK
 )
 
@@ -37,7 +43,8 @@ func init() {
 	//os.Setenv("SOFTHSM_CONF", wd+"/softhsm.conf")
 	os.Setenv("SOFTHSM2_CONF", wd+"/softhsm2.conf")
 
-	os.Setenv("FXPKCS11_CFG", "/Users/johnz/futurex/wf_pkcs11_mac/fxpkcs11.cfg")
+	os.Setenv("FXPKCS11_CFG", "/Users/johnz/futurex/wf_pkcs11_mac_447/fxpkcs11.cfg")
+	//os.Setenv("FXPKCS11_CFG", "/Users/johnz/futurex/wf_pkcs11_mac/fxpkcs11.cfg")
 	_sdk = getNewSDK()
 }
 

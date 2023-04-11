@@ -15,7 +15,7 @@ func TestGenerateKeyPair(t *testing.T) {
 		"WIM-test",
 		//"edwards-hsm-1",
 		"id-ed25519-hsm-1",
-		4,
+		1,
 		sdk.Ed25519,
 	}
 
@@ -24,7 +24,7 @@ func TestGenerateKeyPair(t *testing.T) {
 			pf,
 			"WIM-test",
 			"secp256k1-hsm-1",
-			6,
+			1,
 			sdk.Secp256k1,
 		}
 	*/
@@ -33,11 +33,11 @@ func TestGenerateKeyPair(t *testing.T) {
 			pf,
 			"WIM-test",
 			"secp256r1-hsm-1",
-			3,
+			1,
 			sdk.Secp256r1,
 		}
 	*/
-	persistent := false
+	persistent := true
 	pbk, prvk, err := _sdk.GenerateKeyPair(keyLabel, persistent)
 	FailOnErr(t, err, "FonGenerateKeyPair")
 	//if err != nil {
@@ -51,6 +51,7 @@ func TestSignAndVerify(t *testing.T) {
 	//pf := "us01hsm01test.virtucrypt.com:592"
 	pf := "Slot Token 0"
 	//pf := "projects/quantum-pilot-360000/locations/us-west1"
+
 	keyLabel := sdk.KeyLabel{
 		pf,
 		"WIM-test",
@@ -58,6 +59,7 @@ func TestSignAndVerify(t *testing.T) {
 		1,
 		sdk.Ed25519,
 	}
+
 	/*
 		keyLabel := sdk.KeyLabel{
 			pf,
@@ -65,6 +67,15 @@ func TestSignAndVerify(t *testing.T) {
 			"secp256k1-hsm-1",
 			1,
 			sdk.Secp256k1,
+		}
+	*/
+	/*
+		keyLabel := sdk.KeyLabel{
+			pf,
+			"WIM-test",
+			"secp256r1-hsm-1",
+			1,
+			sdk.Secp256r1,
 		}
 	*/
 	message := "sign me"

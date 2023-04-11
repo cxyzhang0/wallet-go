@@ -262,8 +262,8 @@ func TestTransfer(t *testing.T) {
 		ExecutorAddress: executorAddress,
 		To:              &to,
 		ToAddress:       &toAddress,
-		Amount:          big.NewInt(100e2), // USD pennies
-		GasLimit:        1500000,           // TODO: how to calc it?
+		Amount:          big.NewInt(1e2), // USD pennies
+		GasLimit:        1500000,         // TODO: how to calc it?
 		Data:            []byte(""),
 	}
 

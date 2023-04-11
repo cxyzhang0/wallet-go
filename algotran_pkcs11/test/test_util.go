@@ -13,10 +13,15 @@ var (
 	//module          = "/Users/johnz/futurex/wf_pkcs11_mac/libfxpkcs11-debug.dylib"
 	//tokenLabel      = "us01hsm01test.virtucrypt.com:592"
 	//pin             = "safest"
-	module       = "/usr/local/lib/softhsm/libsofthsm2.so"
-	tokenLabel   = "Slot Token 0"
-	pin          = "5678"
-	_sdk         *kmssdk.SDK
+	module     = "/usr/local/lib/softhsm/libsofthsm2.so"
+	tokenLabel = "Slot Token 0"
+	pin        = "5678"
+	_sdk       *kmssdk.SDK
+	/**
+	prerequisite: start the Algorand sandbox containers
+	in /Users/johnz/Project/wf-innovation/algorand/sandbox,
+	./sandbox up
+	*/
 	algodAddress = "http://localhost:4001"
 	algodToken   = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	algodClient  *algod.Client

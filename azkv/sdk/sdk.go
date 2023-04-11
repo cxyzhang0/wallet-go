@@ -8,6 +8,10 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys"
 	"github.com/btcsuite/btcd/btcec"
+	cosmos256k1 "github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	"github.com/decred/dcrd/dcrec/secp256k1/v4"
+
+	//"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"math/big"
 	"runtime"
 )
@@ -93,6 +97,39 @@ func (s *SDK) GetECDSAPublicKey(keyLabel KeyLabel) (*ecdsa.PublicKey, error) {
 	pubKey.Y = new(big.Int).SetBytes(resp.Key.Y)
 
 	return &pubKey, nil
+}
+
+// secp256k1.PublicKey is used by Cosmos
+func (s *SDK) GetSECP256K1PublicKey(keyLabel KeyLabel) (*secp256k1.PublicKey, error) {
+	if keyLabel.Algorithm != Secp256k1 {
+		return nil, fmt.Errorf("only support secp256k1")
+	}
+
+	resp, err := s.GetKey(keyLabel)
+	if err != nil {
+		return nil, err
+	}
+
+	//var x_32, y_32 [32]byte
+	//copy(x_32[:], resp.Key.X)
+	//copy(y_32[:], resp.Key.Y)
+	var x, y secp256k1.FieldVal
+	//x.SetBytes(&x_32)
+	//y.SetBytes(&y_32)
+	x.SetBytes((*[32]byte)(resp.Key.X))
+	y.SetBytes((*[32]byte)(resp.Key.Y))
+
+	return secp256k1.NewPublicKey(&x, &y), nil
+}
+
+// cosmos secp256k1.PubKey is used by Cosmos
+func (s *SDK) GetCosmosSECP256K1PubKey(keyLabel KeyLabel) (*cosmos256k1.PubKey, error) {
+	publicKey, err := s.GetSECP256K1PublicKey(keyLabel)
+	if err != nil {
+		return nil, err
+	}
+	pk := publicKey.SerializeUncompressed()
+	return &cosmos256k1.PubKey{Key: pk}, nil
 }
 
 func (s *SDK) Sign(keyLabel KeyLabel, input []byte) (*azkeys.SignResponse, error) {

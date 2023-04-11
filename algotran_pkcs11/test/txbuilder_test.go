@@ -30,7 +30,7 @@ func TestBuildPaymentTx(t *testing.T) {
 	}
 	_, _, toAddr, err := tran.GetAddressPubKey(to, _sdk)
 	// overwrite toAddr
-	toAddr = "3DZYSDRDFHORTFPGWPSIKOYIOZYAWI67IQZ6T264OBNJKOB74WRZ2LDPQA"
+	//toAddr = "3DZYSDRDFHORTFPGWPSIKOYIOZYAWI67IQZ6T264OBNJKOB74WRZ2LDPQA"
 	//toAddr = "6CCALINGHNFIQXESWJJMO6EAELG7IJF5WY3W37FM23YRL3QN7VYGJHMIVQ"
 
 	txParams, err := algodClient.SuggestedParams().Do(context.Background())
@@ -460,7 +460,7 @@ func TestBuildMultisigMintAssetTx(t *testing.T) {
 		pf,
 		"WIM-test",
 		"id-ed25519-hsm-1",
-		1,
+		2,
 		kmssdk.Ed25519,
 	}
 	_, _, toAddr, err := tran.GetAddressPubKey(to, _sdk)
@@ -481,7 +481,7 @@ func TestBuildMultisigMintAssetTx(t *testing.T) {
 		M:           int(m),
 		To:          to,
 		ToAddr:      toAddr,
-		Amount:      10000,
+		Amount:      20000,
 		TxParams:    &txParams,
 		Note:        []byte("Hello Mint"),
 		AssetID:     assetID,

@@ -23,10 +23,11 @@ import (
 var (
 	//azureAuthLocation = "/Users/johnz/Project/wf-innovation/wallet-go/azkv/sdk/azureauth.json"
 	clientId     = "3757699e-7d6d-4ba0-a584-bbe9d00fcfeb"
-	clientSecret = "bcy8Q~N6aYbXRV7Yrf9Dyrvy.JXcJH7d57Y5Abm7"
-	tenantId     = "b0c970c0-191d-4289-9971-e961c7b6e8d2"
-	vaultName    = "szkv1"
-	keyName      = "secp256k1-soft-1"
+	clientSecret = "gbg8Q~AU3ShJ8C7ymlz6Ze.peBpzLBPFLFgRkch8"
+	//clientSecret = "bcy8Q~N6aYbXRV7Yrf9Dyrvy.JXcJH7d57Y5Abm7"  gbg8Q~AU3ShJ8C7ymlz6Ze.peBpzLBPFLFgRkch8
+	tenantId  = "b0c970c0-191d-4289-9971-e961c7b6e8d2"
+	vaultName = "szkv1"
+	keyName   = "secp256k1-soft-1"
 	//keyName      = "secp256k1-hsm-1"
 	vaultURI string // https://szkv1.vault.azure.net/
 	_sdk     *kmssdk.SDK
@@ -34,7 +35,7 @@ var (
 
 func init() {
 	//os.Setenv("AZURE_AUTH_LOCATION", azureAuthLocation)
-	os.Setenv("AAZURE_TENANT_ID", tenantId)
+	os.Setenv("AZURE_TENANT_ID", tenantId)
 	os.Setenv("AZURE_CLIENT_ID", clientId)
 	os.Setenv("AZURE_CLIENT_SECRET", clientSecret)
 
