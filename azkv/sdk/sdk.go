@@ -99,6 +99,15 @@ func (s *SDK) GetECDSAPublicKey(keyLabel KeyLabel) (*ecdsa.PublicKey, error) {
 	return &pubKey, nil
 }
 
+//func (s *SDK) GetBTCECPublicKey(keyLabel KeyLabel) (*btcec.PublicKey, error) {
+//	ecdsaPublicKey, err := s.GetECDSAPublicKey(keyLabel)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	return btcec.PublicKey(ecdsaPublicKey), nil
+//
+//}
 // secp256k1.PublicKey is used by Cosmos
 func (s *SDK) GetSECP256K1PublicKey(keyLabel KeyLabel) (*secp256k1.PublicKey, error) {
 	if keyLabel.Algorithm != Secp256k1 {
@@ -124,10 +133,13 @@ func (s *SDK) GetSECP256K1PublicKey(keyLabel KeyLabel) (*secp256k1.PublicKey, er
 
 // cosmos secp256k1.PubKey is used by Cosmos
 func (s *SDK) GetCosmosSECP256K1PubKey(keyLabel KeyLabel) (*cosmos256k1.PubKey, error) {
-	publicKey, err := s.GetSECP256K1PublicKey(keyLabel)
+	ecdsaPublicKey, err := s.GetECDSAPublicKey(keyLabel)
+	//publicKey, err := s.GetSECP256K1PublicKey(keyLabel)
 	if err != nil {
 		return nil, err
 	}
+	var publicKey = btcec.PublicKey(*ecdsaPublicKey)
+
 	pk := publicKey.SerializeUncompressed()
 	return &cosmos256k1.PubKey{Key: pk}, nil
 }

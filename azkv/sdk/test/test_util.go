@@ -20,6 +20,7 @@ import (
 // object id: ea599c48-bd9c-46a5-aa73-7a2d6effaadf // is this the principal id?
 // key id: https://szkv1.vault.azure.net/keys/secp256k1-hsm-1
 // az ad sp create-for-rbac --sdk-auth > azureauth.json
+
 var (
 	//azureAuthLocation = "/Users/johnz/Project/wf-innovation/wallet-go/azkv/sdk/azureauth.json"
 	clientId     = "3757699e-7d6d-4ba0-a584-bbe9d00fcfeb"

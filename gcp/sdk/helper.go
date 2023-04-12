@@ -18,7 +18,8 @@ import (
 
 type CryptographAlgorithm uint
 
-/**
+/*
+*
 sha256 is our constant digest function. So we don't name it in the enum.
 NOTE: GCP KMS does not support Secp256r1
 */
@@ -50,6 +51,8 @@ type KeyLabel struct {
 }
 
 func (l *KeyLabel) String() string {
+	//from gcp portal: projects/coreblock-367317/locations/us-west1/keyRings/sean-1/cryptoKeys/key1/cryptoKeyVersions/1
+	//generated here:  projects/coreblock-367317/locations/us-west1/keyRings/sean-1/cryptoKeys/key1/cryptoKeyVersions/1
 	return fmt.Sprintf("projects/%s/locations/%s/keyRings/%s/cryptoKeys/%s/cryptoKeyVersions/%d", l.Project, l.Location, l.KeyRing, l.Key, l.Version)
 }
 

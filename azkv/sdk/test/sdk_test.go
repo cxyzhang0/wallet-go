@@ -149,6 +149,7 @@ func TestCosmosSignAndVerifySig(t *testing.T) {
 	//t.Logf("hash: %v", hash)
 
 	sigResp, err := _sdk.Sign(keyLabel, hash)
+	//sigResp, err := _sdk.Sign(keyLabel, hash)
 	FailOnErr(t, err, "FonSign")
 
 	pubKey, err := _sdk.GetCosmosSECP256K1PubKey(keyLabel)

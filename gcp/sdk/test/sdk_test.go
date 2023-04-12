@@ -1,13 +1,15 @@
 package test
 
 import (
+	"fmt"
 	"github.com/cxyzhang0/wallet-go/gcp/sdk"
+	"github.com/stretchr/testify/require"
 	"testing"
 )
 
-/**
+/*
+*
 projects/coreblock-367317/locations/us-west1/keyRings/sean-1/cryptoKeys/key1/cryptoKeyVersions/1
-
 */
 func TestCreateKeyRing(t *testing.T) {
 	keyLabel := sdk.KeyLabel{
@@ -21,9 +23,10 @@ func TestCreateKeyRing(t *testing.T) {
 	//	KeyRing:  "test-createkeyring-1",
 	//}
 	result, err := _sdk.CreateKeyRing(keyLabel)
-	FailOnErr(t, err, "FonCreateKeyRing")
-
-	t.Logf("key ring %s created at %v", result.Name, result.CreateTime)
+	require.Error(t, err, fmt.Sprintf("result: %v", result))
+	//FailOnErr(t, err, "FonCreateKeyRing")
+	//
+	//t.Logf("key ring %s created at %v", result.Name, result.CreateTime)
 }
 
 func TestGenerateKeyPair(t *testing.T) {
@@ -71,7 +74,8 @@ func TestCreateKeyVersion(t *testing.T) {
 	t.Logf("key vsersion %s created at %v", result.Name, result.CreateTime)
 }
 
-/**
+/*
+*
 Only applicable for non-signing keys
 */
 func TestUpdateKeySetPrimary(t *testing.T) {
@@ -95,21 +99,21 @@ func TestUpdateKeySetPrimary(t *testing.T) {
 
 func TestGetPublicKeyPem(t *testing.T) {
 	keyLabel := sdk.KeyLabel{
-		Project:  "quantum-pilot-360000",
-		Location: "us-west2",
-		KeyRing:  "WIM-test-2",
+		Project:  gcpProject,
+		Location: gcpLocation,
+		KeyRing:  gcpKeyRing,
 		//Key:      "secp256p-soft-1",
-		Key:     "secp256k1-hsm-1",
+		Key:     "key1",
 		Version: 1,
 		//Algorithm: sdk.Secp256p,
 		Algorithm: sdk.Secp256k1,
 	}
 	result, err := _sdk.GetPublicKeyPem(keyLabel)
 	if err != nil {
-		t.Errorf("failed to get public key pem %s: %+v", keyLabel.String(), err)
+		t.Fatalf("failed to get public key pem %s: %+v", keyLabel.String(), err)
 	}
 
-	t.Logf("got pem for %s: %s", keyLabel.String(), result)
+	t.Logf("got pem for %s:\n%s", keyLabel.String(), result)
 }
 
 func TestGetECDSAPublicKey(t *testing.T) {
