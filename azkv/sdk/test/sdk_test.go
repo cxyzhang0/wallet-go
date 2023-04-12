@@ -1,6 +1,7 @@
 package test
 
 import (
+	"encoding/hex"
 	kmssdk "github.com/cxyzhang0/wallet-go/azkv/sdk"
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/tendermint/crypto"
@@ -132,7 +133,8 @@ func TestSignAndVerifySig_negative(t *testing.T) {
 	//t.Logf("verified: %t", *verifyResp.Value)
 }
 
-func TestCosmosSignAndVerifySig(t *testing.T) {
+// Signature directly from HSM - malleability
+func TestCosmosSignAndVerifySig_HalfFail(t *testing.T) {
 	keyLabel := kmssdk.KeyLabel{
 		Key:     keyName,
 		Version: "0eab9a0cc2e84018be05f90e5d914142",
@@ -150,6 +152,7 @@ func TestCosmosSignAndVerifySig(t *testing.T) {
 
 	sigResp, err := _sdk.Sign(keyLabel, hash)
 	//sigResp, err := _sdk.Sign(keyLabel, hash)
+	//sigResp, err := _sdk.Sign(keyLabel, hash)
 	FailOnErr(t, err, "FonSign")
 
 	pubKey, err := _sdk.GetCosmosSECP256K1PubKey(keyLabel)
@@ -157,8 +160,121 @@ func TestCosmosSignAndVerifySig(t *testing.T) {
 
 	verified := pubKey.VerifySignature(msg, sigResp.Result)
 
+	t.Logf("sig:     %s", hex.EncodeToString(sigResp.Result))
+	t.Logf("pub key: %s", hex.EncodeToString(pubKey.GetKey()))
+	//  pk: 02e9f0f33d79d0459b22ecb253cb3ec52c4ad12f4419fbea03ec825cc74fb3b693
 	require.True(t, verified)
 	//t.Logf("verified: %t", verified)
+}
+
+// Signature directly from HSM - malleability
+func TestCosmosSignAndVerifySig_HalfFailLoop(t *testing.T) {
+	keyLabel := kmssdk.KeyLabel{
+		Key:     keyName,
+		Version: "0eab9a0cc2e84018be05f90e5d914142",
+		//Version:   "cb848fb15e3a40b49bc41cbe957ea438",
+		Algorithm: kmssdk.Secp256k1,
+	}
+
+	msg := []byte("sign me")
+
+	// both SecureHashByteArray and crypto.Sha256 work
+	//hash, err := kmssdk.SecureHashByteArray(msg)
+	//FailOnErr(t, err, "FonSecureHash")
+	hash := crypto.Sha256(msg)
+	//t.Logf("hash: %v", hash)
+	var successes int
+	var runs = 100
+	for i := 0; i < runs; i++ {
+		sigResp, err := _sdk.Sign(keyLabel, hash)
+		//sigResp, err := _sdk.Sign(keyLabel, hash)
+		FailOnErr(t, err, "FonSign")
+
+		pubKey, err := _sdk.GetCosmosSECP256K1PubKey(keyLabel)
+		FailOnErr(t, err, "FonGetCosmosSECP256K1PubKey")
+
+		verified := pubKey.VerifySignature(msg, sigResp.Result)
+
+		//t.Logf("sig:     %s", hex.EncodeToString(sigResp.Result))
+		//t.Logf("pub key: %s", hex.EncodeToString(pubKey.GetKey()))
+		// sig: c01a8eaf89e5722f15b6acf7da52e638ebd98ce6f81a806ee92e54ed7fec745434215d29438eefde9d04186a3d6fc8b36ff4ec02b3ae45ef74e20466271b3030
+		//	pk:	04e9f0f33d79d0459b22ecb253cb3ec52c4ad12f4419fbea03ec825cc74fb3b693dbd35affe186096eacabaa5819961ca3fa42c255ac580fdacec23e784dbdd59a
+		//  pk: 02e9f0f33d79d0459b22ecb253cb3ec52c4ad12f4419fbea03ec825cc74fb3b693
+		//require.True(t, verified)
+		if verified {
+			successes++
+		}
+		//t.Logf("verified: %t", verified)
+	}
+	t.Logf("%d of %d", successes, runs)
+	require.Equal(t, runs, successes)
+
+}
+
+func TestCosmosSignAndVerifySig(t *testing.T) {
+	keyLabel := kmssdk.KeyLabel{
+		Key:     keyName,
+		Version: "0eab9a0cc2e84018be05f90e5d914142",
+		//Version:   "cb848fb15e3a40b49bc41cbe957ea438",
+		Algorithm: kmssdk.Secp256k1,
+	}
+
+	msg := []byte("sign me")
+
+	// both SecureHashByteArray and crypto.Sha256 work
+	//hash, err := kmssdk.SecureHashByteArray(msg)
+	//FailOnErr(t, err, "FonSecureHash")
+	hash := crypto.Sha256(msg)
+	//t.Logf("hash: %v", hash)
+
+	sig, err := _sdk.GetCosmosChainSignature(keyLabel, hash)
+	//sigResp, err := _sdk.Sign(keyLabel, hash)
+	FailOnErr(t, err, "FonSign")
+
+	pubKey, err := _sdk.GetCosmosSECP256K1PubKey(keyLabel)
+	FailOnErr(t, err, "FonGetCosmosSECP256K1PubKey")
+
+	verified := pubKey.VerifySignature(msg, sig)
+
+	t.Logf("sig:     %s", hex.EncodeToString(sig))
+	t.Logf("pub key: %s", hex.EncodeToString(pubKey.GetKey()))
+	//  pk: 02e9f0f33d79d0459b22ecb253cb3ec52c4ad12f4419fbea03ec825cc74fb3b693
+	require.True(t, verified)
+	//t.Logf("verified: %t", verified)
+}
+
+func TestCosmosSignAndVerifySigLoop(t *testing.T) {
+	keyLabel := kmssdk.KeyLabel{
+		Key:     keyName,
+		Version: "0eab9a0cc2e84018be05f90e5d914142",
+		//Version:   "cb848fb15e3a40b49bc41cbe957ea438",
+		Algorithm: kmssdk.Secp256k1,
+	}
+
+	msg := []byte("sign me")
+
+	// both SecureHashByteArray and crypto.Sha256 work
+	//hash, err := kmssdk.SecureHashByteArray(msg)
+	//FailOnErr(t, err, "FonSecureHash")
+	hash := crypto.Sha256(msg)
+	//t.Logf("hash: %v", hash)
+	var successes int
+	var runs = 100
+	for i := 0; i < runs; i++ {
+		sig, err := _sdk.GetCosmosChainSignature(keyLabel, hash)
+		FailOnErr(t, err, "FonSign")
+
+		pubKey, err := _sdk.GetCosmosSECP256K1PubKey(keyLabel)
+		FailOnErr(t, err, "FonGetCosmosSECP256K1PubKey")
+
+		verified := pubKey.VerifySignature(msg, sig)
+
+		if verified {
+			successes++
+		}
+	}
+	t.Logf("%d of %d", successes, runs)
+	require.Equal(t, runs, successes)
 }
 
 func TestGetChainSignature(t *testing.T) {

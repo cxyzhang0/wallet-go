@@ -10,6 +10,7 @@ import (
 	"github.com/btcsuite/btcd/btcec"
 	cosmos256k1 "github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
+	tendermintbtct "github.com/tendermint/btcd/btcec"
 
 	//"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"math/big"
@@ -99,15 +100,15 @@ func (s *SDK) GetECDSAPublicKey(keyLabel KeyLabel) (*ecdsa.PublicKey, error) {
 	return &pubKey, nil
 }
 
-//func (s *SDK) GetBTCECPublicKey(keyLabel KeyLabel) (*btcec.PublicKey, error) {
-//	ecdsaPublicKey, err := s.GetECDSAPublicKey(keyLabel)
-//	if err != nil {
-//		return nil, err
-//	}
+//	func (s *SDK) GetBTCECPublicKey(keyLabel KeyLabel) (*btcec.PublicKey, error) {
+//		ecdsaPublicKey, err := s.GetECDSAPublicKey(keyLabel)
+//		if err != nil {
+//			return nil, err
+//		}
 //
-//	return btcec.PublicKey(ecdsaPublicKey), nil
+//		return btcec.PublicKey(ecdsaPublicKey), nil
 //
-//}
+// }
 // secp256k1.PublicKey is used by Cosmos
 func (s *SDK) GetSECP256K1PublicKey(keyLabel KeyLabel) (*secp256k1.PublicKey, error) {
 	if keyLabel.Algorithm != Secp256k1 {
@@ -133,14 +134,14 @@ func (s *SDK) GetSECP256K1PublicKey(keyLabel KeyLabel) (*secp256k1.PublicKey, er
 
 // cosmos secp256k1.PubKey is used by Cosmos
 func (s *SDK) GetCosmosSECP256K1PubKey(keyLabel KeyLabel) (*cosmos256k1.PubKey, error) {
-	ecdsaPublicKey, err := s.GetECDSAPublicKey(keyLabel)
-	//publicKey, err := s.GetSECP256K1PublicKey(keyLabel)
+	//ecdsaPublicKey, err := s.GetECDSAPublicKey(keyLabel)
+	publicKey, err := s.GetSECP256K1PublicKey(keyLabel)
 	if err != nil {
 		return nil, err
 	}
-	var publicKey = btcec.PublicKey(*ecdsaPublicKey)
+	//var publicKey = btcec.PublicKey(*ecdsaPublicKey)
 
-	pk := publicKey.SerializeUncompressed()
+	pk := publicKey.SerializeCompressed()
 	return &cosmos256k1.PubKey{Key: pk}, nil
 }
 
@@ -181,6 +182,31 @@ func (s *SDK) GetChainSignature(keyLabel KeyLabel, input []byte) ([]byte, error)
 
 	len := len(resp.KeyOperationResult.Result)
 	signature := btcec.Signature{
+		R: &big.Int{},
+		S: &big.Int{},
+	}
+	rBytes := resp.KeyOperationResult.Result[:len/2]
+	sBytes := resp.KeyOperationResult.Result[len/2:]
+	signature.R = new(big.Int).SetBytes(rBytes)
+	signature.S = new(big.Int).SetBytes(sBytes)
+
+	return signature.Serialize(), nil
+}
+
+// GetCosmosChainSignature returns the serialized signature ready for cosmos. EC only
+// input is normally the hash to be signed.
+func (s *SDK) GetCosmosChainSignature(keyLabel KeyLabel, input []byte) ([]byte, error) {
+	if keyLabel.Algorithm == RSA2048 {
+		return nil, fmt.Errorf("only EC is supported")
+	}
+
+	resp, err := s.Sign(keyLabel, input)
+	if err != nil {
+		return nil, err
+	}
+
+	len := len(resp.KeyOperationResult.Result)
+	signature := tendermintbtct.Signature{
 		R: &big.Int{},
 		S: &big.Int{},
 	}

@@ -99,6 +99,7 @@ require (
 require (
 	github.com/btcsuite/btcd v0.22.1
 	github.com/stretchr/testify v1.8.1
+	github.com/tendermint/btcd v0.1.1
 )
 
 require (
