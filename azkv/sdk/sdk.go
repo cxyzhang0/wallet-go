@@ -10,7 +10,7 @@ import (
 	"github.com/btcsuite/btcd/btcec"
 	cosmos256k1 "github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
-	tendermintbtct "github.com/tendermint/btcd/btcec"
+	tendermintbtcec "github.com/tendermint/btcd/btcec"
 
 	//"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"math/big"
@@ -195,6 +195,8 @@ func (s *SDK) GetChainSignature(keyLabel KeyLabel, input []byte) ([]byte, error)
 
 // GetCosmosChainSignature returns the serialized signature ready for cosmos. EC only
 // input is normally the hash to be signed.
+// The difference from GetChainSignature is that GetCosmosChainSignature use tendermintbtcec Signature
+//	instead of bitcoin Signature.
 func (s *SDK) GetCosmosChainSignature(keyLabel KeyLabel, input []byte) ([]byte, error) {
 	if keyLabel.Algorithm == RSA2048 {
 		return nil, fmt.Errorf("only EC is supported")
@@ -206,7 +208,7 @@ func (s *SDK) GetCosmosChainSignature(keyLabel KeyLabel, input []byte) ([]byte, 
 	}
 
 	len := len(resp.KeyOperationResult.Result)
-	signature := tendermintbtct.Signature{
+	signature := tendermintbtcec.Signature{
 		R: &big.Int{},
 		S: &big.Int{},
 	}
