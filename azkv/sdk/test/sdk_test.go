@@ -2,9 +2,9 @@ package test
 
 import (
 	"encoding/hex"
+	"github.com/cometbft/cometbft/crypto"
 	kmssdk "github.com/cxyzhang0/wallet-go/azkv/sdk"
 	"github.com/stretchr/testify/require"
-	"github.com/tendermint/tendermint/crypto"
 	"testing"
 )
 
