@@ -133,8 +133,8 @@ func TestSignAndVerifySig_negative(t *testing.T) {
 	//t.Logf("verified: %t", *verifyResp.Value)
 }
 
-// Signature directly from HSM - malleability
-func TestCosmosSignAndVerifySig_HalfFail(t *testing.T) {
+// Signature directly from HSM - half fail
+func TestCosmosSignAndVerifySig_Malleability(t *testing.T) {
 	keyLabel := kmssdk.KeyLabel{
 		Key:     keyName,
 		Version: "0eab9a0cc2e84018be05f90e5d914142",
@@ -167,8 +167,8 @@ func TestCosmosSignAndVerifySig_HalfFail(t *testing.T) {
 	//t.Logf("verified: %t", verified)
 }
 
-// Signature directly from HSM - malleability
-func TestCosmosSignAndVerifySig_HalfFailLoop(t *testing.T) {
+// Signature directly from HSM - half fail Loop
+func TestCosmosSignAndVerifySig_MalleabilityLoop(t *testing.T) {
 	keyLabel := kmssdk.KeyLabel{
 		Key:     keyName,
 		Version: "0eab9a0cc2e84018be05f90e5d914142",
@@ -206,7 +206,7 @@ func TestCosmosSignAndVerifySig_HalfFailLoop(t *testing.T) {
 		}
 		//t.Logf("verified: %t", verified)
 	}
-	t.Logf("%d of %d", successes, runs)
+	t.Logf("Successes: %d of %d", successes, runs)
 	require.Equal(t, runs, successes)
 
 }
@@ -273,7 +273,7 @@ func TestCosmosSignAndVerifySigLoop(t *testing.T) {
 			successes++
 		}
 	}
-	t.Logf("%d of %d", successes, runs)
+	t.Logf("Successes: %d of %d", successes, runs)
 	require.Equal(t, runs, successes)
 }
 
